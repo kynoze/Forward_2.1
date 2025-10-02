@@ -1,7 +1,7 @@
 TgCrypto==1.2.5
 pyrogram==2.0.106
 pyromod==1.5
-pytz
+pytz==2024.2
 pymongo[srv]==3.12.3
 motor==2.5.1
 marshmallow==3.14.1
