@@ -11,3 +11,4 @@ OWNER_ID = int(getenv("OWNER_ID", "5326801541"))
 MONGO_URL = getenv("MONGO_URL", "mongodb+srv://autopost763:OMnkmZFLXUu0lgnQ@cluster0.wcxqdzt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 CACHE_TIME = 300 #int(environ["CACHE_TIME"])
 COLLECTION_NAME = getenv("COLLECTION_NAME", "forward2025")
+TO_CHANNEL = -1001592628992
