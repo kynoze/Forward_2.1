@@ -9,7 +9,7 @@ from config import Config
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Database configuration
+# Database config
 DATABASE_URI = Config.DATABASE_URI
 DATABASE_NAME = "forward_media"
 COLLECTION_NAME = "media-collection"
@@ -19,24 +19,28 @@ client = AsyncIOMotorClient(DATABASE_URI)
 database = client[DATABASE_NAME]
 instance = Instance.from_db(database)
 
-# Document model for media messages
+# Document model
 @instance.register
 class Data(Document):
-    id = fields.StrField(attribute='_id', required=True, default=None)
-    use = fields.StrField(required=True, default="forward")
-    caption = fields.StrField(required=True, default="No Caption", marshmallow_default="No Caption")
+    id = fields.StrField(attribute='_id', required=True)
+    use = fields.StrField(required=True)
+    caption = fields.StrField(required=True)
 
     class Meta:
         collection_name = COLLECTION_NAME
 
-# Save a media entry to the database
+    # Set defaults when creating Python object
+    def __init__(self, **kwargs):
+        if "use" not in kwargs:
+            kwargs["use"] = "forward"
+        if "caption" not in kwargs or not kwargs["caption"]:
+            kwargs["caption"] = "No Caption"
+        super().__init__(**kwargs)
+
+# Save a media entry in DB
 async def save_data(file_id: str, caption: str):
     try:
-        data = Data(
-            id=file_id,
-            use="forward",
-            caption=caption or "No Caption"
-        )
+        data = Data(id=file_id, caption=caption)
         await data.commit()
     except ValidationError as e:
         logger.exception(f"Validation error while saving: {e}")
@@ -47,10 +51,6 @@ async def save_data(file_id: str, caption: str):
 
 # Fetch the next message(s) to forward
 async def get_search_results(limit: int = 1):
-    """
-    Fetch messages from DB with 'use' == 'forward'.
-    Default fetch: 1 message.
-    """
     cursor = Data.find({'use': "forward"}).sort('$natural', 1).limit(limit)
     messages = await cursor.to_list(length=limit)
     return messages
