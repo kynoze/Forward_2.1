@@ -7,8 +7,8 @@ from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 
-from config import Config
-from database import get_search_results, Data  # Data is uMongo Document class
+from config import OWNER_ID
+from database.utils import get_search_results, Data  # Data is uMongo Document class
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -16,8 +16,6 @@ logger.setLevel(logging.INFO)
 IST = pytz.timezone("Asia/Kolkata")
 MessageCount = 0
 status = set()          # simple set to avoid overlapping runs
-OWNER = Config.OWNER_ID  # int or list/tuple of ints
-
 
 def is_owner(user_id: int) -> bool:
     if isinstance(OWNER, (list, tuple, set)):
