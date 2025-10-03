@@ -5,7 +5,7 @@ from pymongo.errors import DuplicateKeyError
 from umongo import Document, fields
 from marshmallow.exceptions import ValidationError
 from pyrogram.file_id import FileId
-from src.database import db, instance
+from database import db, instance
 from config import COLLECTION_NAME
 
 @instance.register
