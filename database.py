@@ -1,57 +1,52 @@
 import logging
+from pymongo.errors import DuplicateKeyError
+from umongo import Instance, Document, fields
 from motor.motor_asyncio import AsyncIOMotorClient
+from marshmallow import ValidationError
 from config import Config
 
+# Logger setup
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Database config
 DATABASE_URI = Config.DATABASE_URI
 DATABASE_NAME = "forward_media"
 COLLECTION_NAME = "media-collection"
 
+# Async MongoDB client
 client = AsyncIOMotorClient(DATABASE_URI)
-db = client[DATABASE_NAME]
-collection = db[COLLECTION_NAME]
+database = client[DATABASE_NAME]
+instance = Instance.from_db(database)
 
+# Document model
+@instance.register
+class Data(Document):
+    id = fields.StrField(attribute='_id', required=True)
+    use = fields.StrField(required=True)
+    caption = fields.StrField(required=True)
 
-async def save_data(file_id: str, caption: str):
-    """
-    Save a message to the DB. Skips duplicates.
-    """
-    document = {
-        "_id": file_id,
-        "use": "forward",
-        "caption": caption or "No Caption"
-    }
+    class Meta:
+        collection_name = COLLECTION_NAME
+
+# Save a media entry in DB
+async def save_data(id: str, caption: str):
     try:
-        await collection.insert_one(document)
-        logger.info(f"Message saved in DB: {file_id}")
-    except Exception as e:
-        if "duplicate key error" in str(e).lower():
-            logger.warning(f"Already saved in DB: {file_id}")
-        else:
-            logger.exception(f"Error saving message {file_id}: {e}")
-
-
-async def get_search_results(limit: int = 1, count_only: bool = False):
-    """
-    Fetch messages from the DB.
-    :param limit: number of messages to fetch
-    :param count_only: if True, only return total count
-    """
-    if count_only:
-        return await collection.count_documents({"use": "forward"})
-    cursor = collection.find({"use": "forward"}).sort("_id", 1).limit(limit)
-    return await cursor.to_list(length=limit)
-
-
-async def delete_message_data(file_id: str = None):
-    """
-    Delete messages from DB. If file_id is None, delete all.
-    """
-    if file_id:
-        result = await collection.delete_one({"_id": file_id})
-        logger.info(f"Deleted {result.deleted_count} document(s) with ID {file_id}")
+        data = Data(
+            id=id,
+            use="forward",
+            caption=caption
+        )
+        await data.commit()
+    except ValidationError as e:
+        logger.exception(f"Validation error while saving: {e}")
+    except DuplicateKeyError:
+        logger.warning("Already saved in Database")
     else:
-        result = await collection.delete_many({})
-        logger.info(f"Deleted all documents: {result.deleted_count}")
+        logger.info("Message saved in DB")
+
+# Fetch the next message to forward
+async def get_search_results():
+    cursor = Data.find({'use': "forward"}).sort('$natural', 1).limit(1)
+    messages = await cursor.to_list(length=1)
+    return messages
