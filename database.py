@@ -19,24 +19,24 @@ client = AsyncIOMotorClient(DATABASE_URI)
 database = client[DATABASE_NAME]
 instance = Instance.from_db(database)
 
-# Document model
 @instance.register
 class Data(Document):
-    id = fields.StrField(attribute='_id', required=True)
+    # no 'default' or 'missing' here
+    id = fields.StrField(attribute="_id", required=True)
     use = fields.StrField(required=True)
     caption = fields.StrField(required=True)
 
     class Meta:
-        collection_name = COLLECTION_NAME
+        collection_name = "media-collection"
 
-    # Set defaults when creating Python object
+    # handle defaults when creating Python object
     def __init__(self, **kwargs):
-        if "use" not in kwargs:
+        if "use" not in kwargs or not kwargs["use"]:
             kwargs["use"] = "forward"
         if "caption" not in kwargs or not kwargs["caption"]:
             kwargs["caption"] = "No Caption"
         super().__init__(**kwargs)
-
+        
 # Save a media entry in DB
 async def save_data(file_id: str, caption: str):
     try:
