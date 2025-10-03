@@ -9,7 +9,7 @@ from config import Config
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Database config
+# Database configuration
 DATABASE_URI = Config.DATABASE_URI
 DATABASE_NAME = "forward_media"
 COLLECTION_NAME = "media-collection"
@@ -19,34 +19,38 @@ client = AsyncIOMotorClient(DATABASE_URI)
 database = client[DATABASE_NAME]
 instance = Instance.from_db(database)
 
-# Document model
+# Document model for media messages
 @instance.register
 class Data(Document):
-    id = fields.StrField(attribute='_id', required=True, missing=None)
-    use = fields.StrField(required=True, missing="forward")
-    caption = fields.StrField(required=True, missing="No Caption")
+    id = fields.StrField(attribute='_id', required=True, default=None)
+    use = fields.StrField(required=True, default="forward")
+    caption = fields.StrField(required=True, default="No Caption", marshmallow_default="No Caption")
 
     class Meta:
         collection_name = COLLECTION_NAME
 
-# Save a media entry in DB
-async def save_data(id: str, caption: str):
+# Save a media entry to the database
+async def save_data(file_id: str, caption: str):
     try:
         data = Data(
-            id=id,
+            id=file_id,
             use="forward",
-            caption=caption
+            caption=caption or "No Caption"
         )
         await data.commit()
     except ValidationError as e:
         logger.exception(f"Validation error while saving: {e}")
     except DuplicateKeyError:
-        logger.warning("Already saved in Database")
+        logger.warning(f"File {file_id} already exists in DB")
     else:
-        logger.info("Message saved in DB")
+        logger.info(f"Message {file_id} saved in DB")
 
-# Fetch the next message to forward
-async def get_search_results():
-    cursor = Data.find({'use': "forward"}).sort('$natural', 1).limit(1)
-    messages = await cursor.to_list(length=1)
+# Fetch the next message(s) to forward
+async def get_search_results(limit: int = 1):
+    """
+    Fetch messages from DB with 'use' == 'forward'.
+    Default fetch: 1 message.
+    """
+    cursor = Data.find({'use': "forward"}).sort('$natural', 1).limit(limit)
+    messages = await cursor.to_list(length=limit)
     return messages
