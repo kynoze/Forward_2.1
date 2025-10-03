@@ -8,7 +8,7 @@ from pyrogram.enums import ChatMemberStatus
 
 from bot import app
 from modules import ALL_MODULES
-from logging import LOGGER
+from f_logging import LOGGER
 
 
 async def boot():
