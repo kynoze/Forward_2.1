@@ -30,6 +30,7 @@ async def save_file(media):
 
     try:
         file = Media(
+            use='forward'
             file_id=file_id,
             file_ref=file_ref,
             file_name=file_name,
@@ -51,7 +52,7 @@ async def save_file(media):
         return 'err'
 
 async def get_search_results():
-    filter = {'file_id': file_id}
+    filter = {'use': 'forward'}
     cursor = Data.find(filter)
     cursor.sort('$natural', 1)
     cursor.skip(0).limit(1)
