@@ -1,13 +1,14 @@
 import asyncio
 import importlib
-import sys
+import sys, 
+import config
 
 from pyrogram import idle, errors
 from pyrogram.enums import ChatMemberStatus
 
-from src import app, config
-from src.modules import ALL_MODULES
-from src.logging import LOGGER
+from bot import app
+from modules import ALL_MODULES
+from logging import LOGGER
 
 
 async def boot():
