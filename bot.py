@@ -8,7 +8,7 @@ logging.getLogger("pyrogram").setLevel(logging.ERROR)
 
 from pyromod import listen
 from pyrogram.raw.all import layer
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.enums import ParseMode
 from typing import Union, Optional, AsyncGenerator
 from pyrogram import types
