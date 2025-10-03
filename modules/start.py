@@ -1,6 +1,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from bot import app
+from database import Data
 
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
@@ -12,7 +13,7 @@ async def help_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command('total'))
+@app.on_message(filters.command('total'))
 async def total(bot, message):
     if message.from_user.id not in OWNER:
         return await message.reply_text("Who the hell are you!!")
