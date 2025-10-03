@@ -1,6 +1,6 @@
 import asyncio
 import importlib
-import sys, 
+import sys
 import config
 
 from pyrogram import idle, errors
