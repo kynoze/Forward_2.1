@@ -1,3 +1,14 @@
+import re
+import base64
+from struct import pack
+from pymongo.errors import DuplicateKeyError
+from umongo import Document, fields
+from marshmallow.exceptions import ValidationError
+from pyrogram.file_id import FileId
+from database import db, instance
+from config import COLLECTION_NAME
+
+
 @instance.register
 class Data(Document):
     id = fields.StrField(attribute='_id')
