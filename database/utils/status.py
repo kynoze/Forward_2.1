@@ -1,7 +1,6 @@
 from pyrogram import enums
 import pytz, re, os
 from datetime import datetime
-from database import chatsdb
 from database.utils import Media
 
 class temp:
