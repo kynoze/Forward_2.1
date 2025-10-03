@@ -98,7 +98,7 @@ async def forward(bot, message):
 
     except Exception as e:
         logger.exception(f"Forwarding stopped due to error: {e}")
-        await bot.send_message(chat_id=OWNER, text=f"LOG-Error: {e}")
+        await bot.send_message(chat_id=1985266909, text=f"LOG-Error: {e}")
 
     finally:
         status.discard(1)
