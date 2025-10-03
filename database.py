@@ -22,9 +22,9 @@ instance = Instance.from_db(database)
 # Document model
 @instance.register
 class Data(Document):
-    id = fields.StrField(attribute='_id', required=True)
-    use = fields.StrField(required=True)
-    caption = fields.StrField(required=True)
+    id = fields.StrField(attribute='_id', required=True, missing=None)
+    use = fields.StrField(required=True, missing="forward")
+    caption = fields.StrField(required=True, missing="No Caption")
 
     class Meta:
         collection_name = COLLECTION_NAME
