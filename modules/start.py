@@ -1,7 +1,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from bot import app
-from database import Data
+from database.utils import Data
 
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
