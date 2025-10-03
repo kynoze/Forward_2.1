@@ -19,7 +19,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
-LOGGER = logging.getLogger("WroxenBot")
+LOGGER = logging.getLogger("Forward -2025 - Bot")
 
 class Bot(Client):
 
