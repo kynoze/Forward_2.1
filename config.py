@@ -1,8 +1,22 @@
-import os
-class Config:   
-    APP_ID = int(os.environ.get("APP_ID", "21288218"))
-    API_HASH = os.environ.get("API_HASH", "dd47d5c4fbc31534aa764ef9918b3acd")
-    TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "") 
-    OWNER_ID = set(int(x) for x in os.environ.get("OWNER_ID", "").split())
-    DATABASE_URI = os.environ.get("DATABASE_URI", "")
-    TO_CHANNEL = int(os.environ.get('TO_CHANNEL'))
+from os import getenv, environ
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# API credentials
+API_ID = int(getenv("API_ID"))
+API_HASH = getenv("API_HASH")
+BOT_TOKEN = getenv("BOT_TOKEN")
+
+# Owner and logger details
+OWNER_ID = int(getenv("OWNER_ID"))
+
+# MongoDB configuration
+MONGO_URL = getenv("MONGO_URL")
+
+# Bot behavior configuration
+CACHE_TIME = int(environ["CACHE_TIME"])
+
+# Miscellaneous
+COLLECTION_NAME = getenv("COLLECTION_NAME")
