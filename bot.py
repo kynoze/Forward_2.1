@@ -17,7 +17,7 @@ class Bot(Client):
             name="MoviesBot",
             api_id=config.API_ID,
             api_hash=config.API_HASH,
-            bot_token=config.BOT_TOKEN,
+            bot_token=config.TG_BOT_TOKEN,
             max_concurrent_transmissions=7,
         )
 
