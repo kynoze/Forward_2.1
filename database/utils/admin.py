@@ -2,7 +2,7 @@ from typing import Callable
 from pyrogram import Client
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import Message
-from src import app  
+from bot import app  
 
 def is_admins(func: Callable) -> Callable:
     async def wrapper(client: Client, message: Message):
