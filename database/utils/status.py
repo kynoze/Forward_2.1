@@ -1,8 +1,8 @@
 from pyrogram import enums
 import pytz, re, os
 from datetime import datetime
-from src.database import chatsdb
-from src.database.utils import Media
+from database import chatsdb
+from database.utils import Media
 
 class temp:
     CURRENT = int(os.environ.get("SKIP", 2))
