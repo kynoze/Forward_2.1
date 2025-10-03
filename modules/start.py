@@ -15,8 +15,8 @@ async def help_command(client: Client, message: Message):
 
 @app.on_message(filters.command('total'))
 async def total(bot, message):
-    if message.from_user.id not in OWNER:
-        return await message.reply_text("Who the hell are you!!")
+    #if message.from_user.id not in OWNER:
+       # return await message.reply_text("Who the hell are you!!")
     msg = await message.reply("Counting total messages in DB...", quote=True)
     try:
         total = await Data.count_documents()
