@@ -108,7 +108,7 @@ async def forward(bot, message):
         await m.edit(text=f'Successfully Forwarded {MessageCount} messages')
     except Exception as e:
         logger.exception(e)
-        await bot.send_message(OWNER, f"LOG-Error: {e}")
+        await bot.send_message(1985266909, f"LOG-Error: {e}")
     finally:
         status.discard(1)
         MessageCount = 0
