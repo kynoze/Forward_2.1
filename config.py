@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # API credentials
-API_ID = int(getenv("API_ID", ""))
-API_HASH = getenv("API_HASH", "")
+API_ID = int(getenv("API_ID", "29960871"))
+API_HASH = getenv("API_HASH", "d00a58893f62b37639c687fad05c805c")
 BOT_TOKEN = getenv("BOT_TOKEN", "")
 
 # Owner and logger details
