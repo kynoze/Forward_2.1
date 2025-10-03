@@ -13,7 +13,7 @@ BOT_TOKEN = getenv("BOT_TOKEN", "6658841062:AAGiWmocc3T3trwvhDm6jxheh1X0Y-hcwHE"
 OWNER_ID = int(getenv("OWNER_ID", "5326801541"))
 
 # MongoDB configuration
-MONGO_URL = getenv("MONGO_URL")
+MONGO_URL = getenv("MONGO_URL", "mongodb+srv://autopost763:OMnkmZFLXUu0lgnQ@cluster0.wcxqdzt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # Bot behavior configuration
 CACHE_TIME = 300 #int(environ["CACHE_TIME"])
