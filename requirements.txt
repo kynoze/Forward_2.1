@@ -1,5 +1,5 @@
 TgCrypto==1.2.5
-pyrogram==2.0.106
+kurigram==2.2.12
 pyromod==1.5
 pytz==2024.2
 pymongo[srv]==5.4.0
