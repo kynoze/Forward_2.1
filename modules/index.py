@@ -5,7 +5,7 @@ from pyrogram.errors import FloodWait
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import OWNER_ID
-from database import save_file, temp, get_readable_time
+from database.utils import save_file, temp, get_readable_time
 from bot import app
 
 lock = asyncio.Lock()
