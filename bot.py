@@ -13,31 +13,40 @@ from pyrogram.enums import ParseMode
 from typing import Union, Optional, AsyncGenerator
 from pyrogram import types
 
-from config import Config
+from config import Config 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+LOGGER = logging.getLogger("WroxenBot")
 
 class Bot(Client):
 
     def __init__(self):
         super().__init__(
-            name="bot_session",
+            "forward 2025",
             api_hash=Config.API_HASH,
             api_id=Config.APP_ID,
+            plugins={"root": "plugins"},
+            workers=200,
             bot_token=Config.TG_BOT_TOKEN,
-            sleep_threshold=5,
-            workers=50,
-            plugins={"root": "plugins"}
+            sleep_threshold=10
         )
+        self.LOGGER = LOGGER
 
-    async def start(self):
-        await super().start()
-        me = await self.get_me()
-        logging.info(f"@{me.username} Is Started!")
+    async def start(self, *args, **kwargs):
+        # Handle extra args for run()
+        await super().start(*args, **kwargs)
+        bot_details = await self.get_me()
+        self.set_parse_mode(enums.ParseMode.HTML)
+        self.LOGGER.info(f"@{bot_details.username} started!")
+        self.USER, self.USER_ID = await User().start()
 
-    async def stop(self, *args):
-        await super().stop()
-        logging.info("Bot stopped. Bye.")
-    
+    async def stop(self, *args, **kwargs):
+        await super().stop(*args, **kwargs)
+        self.LOGGER.info("Bot stopped. Bye.")
+        
     async def iter_messages(
         self,
         chat_id: Union[int, str],
