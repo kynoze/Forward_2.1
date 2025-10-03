@@ -7,7 +7,7 @@ from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 
-from config import OWNER_ID
+from config import OWNER_ID, TO_CHANNEL
 from database.utils import get_search_results, Data  # Data is uMongo Document class
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ async def forward(bot: Client, message):
                         logger.exception("Failed to delete doc without id.")
                     continue
 
-                to_chat = Config.TO_CHANNEL
+                to_chat = TO_CHANNEL
 
                 # Try send_cached_media first, then fallback to copy_message
                 sent_ok = False
