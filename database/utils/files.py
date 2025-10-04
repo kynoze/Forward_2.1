@@ -16,7 +16,6 @@ class Media(Document):
     use = fields.StrField(required=True)
     
     class Meta:
-        indexes = ('$file_name',)
         collection_name = COLLECTION_NAME
 
 
