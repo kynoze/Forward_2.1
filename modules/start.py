@@ -4,6 +4,7 @@ from bot import app
 from config import OWNER_ID
 from database.utils import Data
 from database import get_chat, add_chat
+from .forward import is_running
 
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
@@ -58,3 +59,25 @@ async def set_target_channel(bot, message):
 
     await add_chat(int(chat.id))
     await message.reply(f"✅ Successfully set <b>{chat.title}</b> as target channel.")
+
+@app.on_message(filters.private & filters.command("cleardb"))
+async def clear_database(bot, message):
+    if message.from_user.id not in OWNER_ID:
+        return await message.reply_text("Who the hell are you!!")
+
+    msg = await message.reply("🗑 Clearing database...")
+    try:
+        deleted = await Data.collection.delete_many({})
+        await msg.edit(f"✅ Database cleared.\nDeleted documents: {deleted.deleted_count}")
+    except Exception as e:
+        await msg.edit(f"❌ Error: {e}")
+
+@app.on_message(filters.private & filters.command("status"))
+async def status_command(bot, message):
+    if message.from_user.id not in OWNER_ID:
+        return await message.reply_text("Who the hell are you!!")
+    if is_running:
+        status_text = 'Bot is currently forwarding files'
+    else:
+        status_text = 'Bot is free, You can start new task'
+    await message.reply_text(status_text)
