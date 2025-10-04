@@ -23,9 +23,3 @@ async def delete_data(data):
         'caption': data.caption
     })
     
-def media(msg):
-  if msg.media:
-     media = getattr(msg, msg.media.value, None)
-     if media:
-        return getattr(media, 'file_id', None)
-  return None 
