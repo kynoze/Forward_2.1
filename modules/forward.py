@@ -27,18 +27,18 @@ def is_owner(user_id: int) -> bool:
 async def forward(bot, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
+    chat_id = await get_chat()
+    if not chat_id:
+        return await message.reply_text("First set target chat where you wana forward files!")
     global MessageCount
     if 1 in status:
-        await message.reply_text("A task is already running.")
-        return
-
-    m = await bot.send_message(chat_id=message.from_user.id, text="Started Forwarding")
-
+        return await message.reply_text("A task is already running.")
+    m = await bot.send_message(chat_id=message.from_user.id, text="Forwarding Started!")
     while await Data.count_documents() != 0:
         data = await get_search_results()
         for msg in data:
             try:
-                await copy_msg(msg, bot, message)
+                await copy_msg(msg, bot, message, chat_id)
                 try:
                     status.add(1)
                 except:
@@ -62,7 +62,7 @@ async def forward(bot, message):
     try:
         await m.edit(text=f'Successfully Forwarded {MessageCount} messages')
     except Exception as e:
-        await bot.send_message(OWNER, e)
+        await bot.send_message(message.from_user.id, e)
         logger.exception(e)
         pass
 
