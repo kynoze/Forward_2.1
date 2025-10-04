@@ -37,6 +37,7 @@ async def forward(bot, message):
         return await message.reply_text("First set target chat where you want to forward files!")
 
     is_running = True
+    errors = 0
 
     m = await message.reply_text("Forwarding Started!")
 
@@ -44,7 +45,7 @@ async def forward(bot, message):
         while True:
             data = await get_search_results()
             if not data:
-                break  # exit if no more messages
+                break
 
             for msg in data:
                 try:
@@ -54,19 +55,20 @@ async def forward(bot, message):
 
                     MessageCount += 1
 
-                    if MessageCount % 5 == 0:
+                    if MessageCount % 10 == 0:
                         datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
                         await m.edit_text(
                             f"Total Forwarded: <code>{MessageCount}</code>\n"
-                            f"Sleeping for <code>{FloodWaitTime}</code> second{'s' if FloodWaitTime != 1 else ''}\n"
+                            f"Sleeping for <code>{FloodWaitTime}</code> second\n"
+                            f"Total Error: <code>{errors}</code>\n"
                             f"Last Forwarded at {datetime_ist}"
                         )
 
                 except Exception as e:
                     logger.exception(e)
-                    continue
-
-        # Final progress update
+                    errors += 1
+                    continue    
+                    
         datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
         await m.edit_text(
             f"✅ Successfully Forwarded <code>{MessageCount}</code> messages\n"
@@ -78,7 +80,5 @@ async def forward(bot, message):
         await message.reply_text(f"Error: {e}")
 
     finally:
-        # Cleanup global variables
         is_running = False
-        FloodWaitTime = 0
         MessageCount = 0
