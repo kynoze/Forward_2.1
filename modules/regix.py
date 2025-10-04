@@ -1,7 +1,6 @@
 import asyncio
 from pyrogram.errors import FloodWait
-from database.utils import Data  # ✅ Make sure this path is correct for your project
-
+from database.utils import Media
 
 async def copy_msg(msg, bot, message, chat_id):
     while True:
@@ -24,7 +23,7 @@ async def delete_data(data):
     Delete one specific media record from the MongoDB collection.
     """
     try:
-        result = await Data.collection.delete_one({
+        result = await Media.collection.delete_one({
             'use': data.use,
             'file_id': data.file_id,
             'caption': data.caption
