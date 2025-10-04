@@ -15,6 +15,7 @@ logger.setLevel(logging.INFO)
 IST = pytz.timezone("Asia/Kolkata")
 MessageCount = 0
 is_running = False
+FloodWaitTime = 0
 
 @Client.on_message(filters.command("forward"))
 async def forward(bot, message):
@@ -48,12 +49,10 @@ async def forward(bot, message):
                     datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
                     await m.edit_text(
                         f"Total Forwarded: <code>{MessageCount}</code>\n"
-                        f"Sleeping for 1 Second\n"
+                        f"Sleeping for {FloodWaitTime} Second\n"
                         f"Last Forwarded at {datetime_ist}"
                     )
-
-                    await asyncio.sleep(1)
-
+                    
                 except Exception as e:
                     logger.exception(e)
                     continue
@@ -67,3 +66,4 @@ async def forward(bot, message):
     finally:
         is_running = False
         MessageCount = 0
+        FloodWaitTime = 0
