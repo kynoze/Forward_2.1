@@ -7,7 +7,7 @@ import asyncio
 async def copy_msg(msg, bot, message, chat_id):
    try:
      await bot.send_cached_media(
-         chat_id=sts.get('TO'),
+         chat_id=int(chat_id),
          file_id=msg.file_id,
          caption=msg.caption)
    except FloodWait as e:
