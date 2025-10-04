@@ -23,3 +23,24 @@ async def total(bot, message):
         await msg.edit(f'Total Messages: {total}')
     except Exception as e:
         await msg.edit(f'Error: {e}')
+
+
+@app.on_message(filters.private & filters.command(['set_channel']))
+async def set_target_channel(bot, message):    
+    #if Config.ADMINS and not ((str(message.from_user.id) in Config.ADMINS) or (message.from_user.username in Config.ADMINS)):
+        #return await message.reply("You Are Not Allowed To Use This UserBot")
+    try:
+        _, chat_id = message.text.split(" ")
+    except:
+        return await message.reply("Give me a target channel ID")
+    try:
+        chat_id = int(chat_id)
+    except:
+        return await message.reply("Give me a valid ID")
+
+    try:
+        chat = await bot.get_chat(chat_id)
+    except:
+        return await message.reply("Make me a admin in your target channel.")
+    CHANNEL[message.from_user.id] = int(chat.id)
+    await message.reply(f"Successfully set {chat.title} target channel.")
