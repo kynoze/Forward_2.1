@@ -7,7 +7,7 @@ from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 
-from .regix import copy_msg
+from .regix import copy_msg, delete_data
 from config import OWNER_ID, TO_CHANNEL
 from database.utils import get_search_results, Data  # Data is uMongo Document class
 
@@ -25,6 +25,8 @@ def is_owner(user_id: int) -> bool:
 
 @Client.on_message(filters.command("forward"))
 async def forward(bot, message):
+    if message.from_user.id not in OWNER_ID:
+        return await message.reply_text("Who the hell are you!!")
     global MessageCount
     if 1 in status:
         await message.reply_text("A task is already running.")
@@ -44,16 +46,8 @@ async def forward(bot, message):
             except Exception as e:
                 logger.exception(e)
                 pass
-
-            await Data.collection.delete_one({
-                'use': 'forward',
-                'file_type': file_type,
-                'channel_id': channel_id,
-                'message_id': message_id
-                })
-
+            await delete_data(msg)
             MessageCount += 1
-            
             try:
                 datetime_ist = datetime.now(IST)
                 ISTIME = datetime_ist.strftime("%I:%M:%S %p - %d %B %Y")
