@@ -42,7 +42,7 @@ async def forward(bot, message):
     m = await message.reply_text("Forwarding Started!")
 
     try:
-        while True:
+        while await Media.count_documents() != 0:
             data = await get_search_results()
             if not data:
                 break
