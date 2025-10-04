@@ -16,11 +16,6 @@ IST = pytz.timezone("Asia/Kolkata")
 MessageCount = 0
 is_running = False
 
-def is_owner(user_id: int) -> bool:
-    if isinstance(OWNER_ID, (list, tuple, set)):
-        return user_id in OWNER_ID
-    return user_id == OWNER_ID
-
 @Client.on_message(filters.command("forward"))
 async def forward(bot, message):
     global is_running, MessageCount
