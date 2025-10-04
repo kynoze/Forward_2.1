@@ -12,8 +12,8 @@ from config import COLLECTION_NAME
 @instance.register
 class Media(Document):
     file_id = fields.StrField(attribute='_id', required=True)
-    file_name = fields.StrField(required=True)
     caption = fields.StrField(allow_none=True)
+    use = fields.StrField(required=True)
     
     class Meta:
         indexes = ('$file_name',)
@@ -23,13 +23,12 @@ class Media(Document):
 async def save_file(media):
     file_id, file_ref = unpack_new_file_id(media.file_id)
     file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
-
+    caption = media.caption.html if media.caption else file_name
     try:
         file = Media(
             use='forward'
             file_id=file_id,
-            file_name=file_name,
-            caption=media.caption.html if media.caption else None,
+            caption=caption
         )
         await file.commit()
         return 'suc'
