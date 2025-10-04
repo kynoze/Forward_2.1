@@ -3,9 +3,6 @@ import sys
 import math
 import time, re
 import asyncio 
-import logging
-import random
-
 
 async def copy_msg(msg, bot, message, chat_id):
    try:
@@ -18,11 +15,17 @@ async def copy_msg(msg, bot, message, chat_id):
      await copy_msg(msg, bot, message, chat_id)
    except Exception as e:
      print(e)
-       
+
+async def delete_data(data):
+    await Data.collection.delete_one({
+        'use': data.use,
+        'file_id': data.file_id,
+        'caption': data.caption
+    })
+    
 def media(msg):
   if msg.media:
      media = getattr(msg, msg.media.value, None)
      if media:
         return getattr(media, 'file_id', None)
   return None 
-
