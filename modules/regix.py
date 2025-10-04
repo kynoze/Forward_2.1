@@ -7,7 +7,10 @@ import logging
 import random
 
 
-async def copy(user, bot, msg, m, sts):
+async def copy_msg(msg, bot, message):
+   chat_id = msg.chat_id
+   file_id = msg.file_id
+   caption = msg.caption
    try:                               
      if msg.get("media") and msg.get("caption"):
         await bot.send_cached_media(
@@ -31,8 +34,7 @@ async def copy(user, bot, msg, m, sts):
      await copy(user, bot, msg, m, sts)
    except Exception as e:
      print(e)
-     sts.add('deleted')
-     
+
 def custom_caption(msg, caption):
   if msg.media:
     if (msg.video or msg.document or msg.audio or msg.photo):
