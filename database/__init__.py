@@ -9,3 +9,5 @@ ForwardDB = AsyncIOMotorClient(config.MONGO_URL)
 db = ForwardDB["ForwardDB"]
 instance = MotorAsyncIOInstance(db)
 
+# Target chat db
+chatsdb = db["chats"]
