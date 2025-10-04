@@ -1,10 +1,7 @@
 import re
-import base64
-from struct import pack
 from pymongo.errors import DuplicateKeyError
 from umongo import Document, fields
 from marshmallow.exceptions import ValidationError
-from pyrogram.file_id import FileId
 from database import db, instance
 from config import COLLECTION_NAME
 
@@ -14,19 +11,20 @@ class Media(Document):
     file_id = fields.StrField(attribute='_id', required=True)
     caption = fields.StrField(allow_none=True)
     use = fields.StrField(required=True)
-    
+
     class Meta:
         collection_name = COLLECTION_NAME
 
 
+# ✅ Save file to MongoDB
 async def save_file(media):
-    file_id, file_ref = unpack_new_file_id(media.file_id)
-    file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
-    caption = media.caption.html if media.caption else file_name
+    file_name = getattr(media, "file_name", "Unnamed File")
+    caption = media.caption.html if media.caption else re.sub(r"[_\-\.]+", " ", file_name)
+
     try:
         file = Media(
-            use='forward'
-            file_id=file_id,
+            use='forward',
+            file_id=media.file_id,
             caption=caption
         )
         await file.commit()
@@ -38,13 +36,14 @@ async def save_file(media):
     except DuplicateKeyError:
         return 'dup'
 
-    except Exception:
+    except Exception as e:
+        print(f"Error saving file: {e}")
         return 'err'
 
+
+# ✅ Get next file to forward
 async def get_search_results():
     filter = {'use': 'forward'}
-    cursor = Data.find(filter)
-    cursor.sort('$natural', 1)
-    cursor.skip(0).limit(1)
-    Messages = await cursor.to_list(length=1)
-    return Messages
+    cursor = Media.find(filter).sort('$natural', 1).limit(1)
+    messages = await cursor.to_list(length=1)
+    return messages
