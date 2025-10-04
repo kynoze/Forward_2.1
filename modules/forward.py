@@ -4,7 +4,7 @@ import pytz
 from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
-from .regix import copy_msg, delete_data
+from .regix import copy_msg, delete_data, FloodWaitTime
 from config import OWNER_ID
 from database.utils import get_search_results, Media
 from database import get_chat
@@ -15,11 +15,10 @@ logger.setLevel(logging.INFO)
 IST = pytz.timezone("Asia/Kolkata")
 MessageCount = 0
 is_running = False
-FloodWaitTime = 0
 
 @Client.on_message(filters.command("forward"))
 async def forward(bot, message):
-    global is_running, MessageCount
+    global is_running, MessageCount, FloodWaitTime
 
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
@@ -66,4 +65,3 @@ async def forward(bot, message):
     finally:
         is_running = False
         MessageCount = 0
-        FloodWaitTime = 0
