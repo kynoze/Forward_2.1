@@ -2,9 +2,13 @@ import asyncio
 from pyrogram.errors import FloodWait
 from database.utils import Media
 
+FloodWaitTime = 0
+
 async def copy_msg(msg, bot, message, chat_id):
+    global FloodWaitTime
     while True:
         try:
+            FloodWaitTime = 0
             await bot.send_cached_media(
                 chat_id=int(chat_id),
                 file_id=msg.file_id,
@@ -12,8 +16,9 @@ async def copy_msg(msg, bot, message, chat_id):
             )
             break
         except FloodWait as e:
+            FloodWaitTime = e.value
             print(f"[FloodWait] Sleeping for {e.value} seconds...")
-            await asyncio.sleep(e.value)
+            await asyncio.sleep(FloodWaitTime)
         except Exception as e:
             print(f"[Error] copy_msg: {e}")
             break
