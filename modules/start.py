@@ -7,7 +7,7 @@ from database import  get_chat, add_chat
 
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
-    await message.reply_text(
+    await message.reply(
         f"""
              <b> Bot Admin Commands</b>
              
@@ -18,8 +18,11 @@ async def help_command(client: Client, message: Message):
         /set_channel - Set target channel.
         /forward - Start forwarding.
 """,
-        reply_to_message_id=message.id
-    )
+        reply_markup=InlineKeyboardMarkup(
+        [[
+                InlineKeyboardButton("Source", url="https://github.com/lx0980/Forward_2.1"),
+                InlineKeyboardButton("Channel", url="https://t.me/thelx0980")
+            ]]))
 
 
 @app.on_message(filters.command('total'))
