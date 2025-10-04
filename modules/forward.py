@@ -10,6 +10,7 @@ from pyrogram.errors import FloodWait
 from .regix import copy_msg, delete_data
 from config import OWNER_ID, TO_CHANNEL
 from database.utils import get_search_results, Data  # Data is uMongo Document class
+from database import get_chat
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
