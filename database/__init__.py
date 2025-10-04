@@ -11,3 +11,6 @@ instance = MotorAsyncIOInstance(db)
 
 # Target chat db
 chatsdb = db["chats"]
+
+# Importing other modules
+from .chats import *
