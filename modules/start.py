@@ -8,8 +8,12 @@ from database import  get_chat, add_chat
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
     await message.reply_text(
-        f"""This text is from help command
-        ------->
+        f"""
+        /index - index files from channel
+        /total - total files in DB. 
+        /cleardb - clear all files from database.
+        /status - bot current status. 
+        /set_channel - set target channel. 
 """,
         reply_to_message_id=message.id
     )
@@ -17,8 +21,6 @@ async def help_command(client: Client, message: Message):
 
 @app.on_message(filters.command('total'))
 async def total(bot, message):
-    #if message.from_user.id not in OWNER:
-       # return await message.reply_text("Who the hell are you!!")
     msg = await message.reply("Counting total messages in DB...", quote=True)
     try:
         total = await Data.count_documents()
@@ -27,11 +29,8 @@ async def total(bot, message):
         await msg.edit(f'Error: {e}')
 
 
-@app.on_message(filters.private & filters.command(['set_channel']))
-async def set_target_channel(bot, message):    
-    #if OWNER_ID  not ((str(message.from_user.id) in Config.ADMINS) or (message.from_user.username in Config.ADMINS)):
-        #return await message.reply("You Are Not Allowed To Use This UserBot")
-    
+@app.on_message(filters.private & filters.command(['set_channel']) & filters.user(OWNER_ID))
+async def set_target_channel(bot, message):
     try:
         _, chat_id = message.text.split(" ")
     except:
