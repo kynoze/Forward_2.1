@@ -4,23 +4,20 @@ from database.utils import Data  # ✅ Make sure this path is correct for your p
 
 
 async def copy_msg(msg, bot, message, chat_id):
-    """
-    Copy a cached message (photo/video/document/etc.) to the target chat.
-    Retries automatically if FloodWait occurs.
-    """
-    try:
-        await bot.send_cached_media(
-            chat_id=int(chat_id),
-            file_id=msg.file_id,
-            caption=msg.caption
-        )
-    except FloodWait as e:
-        print(f"[FloodWait] Sleeping for {e.value} seconds...")
-        await asyncio.sleep(e.value)
-        await copy_msg(msg, bot, message, chat_id)  # Retry automatically
-    except Exception as e:
-        print(f"[Error] copy_msg: {e}")
-
+    while True:
+        try:
+            await bot.send_cached_media(
+                chat_id=int(chat_id),
+                file_id=msg.file_id,
+                caption=msg.caption
+            )
+            break
+        except FloodWait as e:
+            print(f"[FloodWait] Sleeping for {e.value} seconds...")
+            await asyncio.sleep(e.value)
+        except Exception as e:
+            print(f"[Error] copy_msg: {e}")
+            break
 
 async def delete_data(data):
     """
