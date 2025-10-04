@@ -6,7 +6,7 @@ from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 from .regix import copy_msg, delete_data
 from config import OWNER_ID
-from database.utils import get_search_results, Data
+from database.utils import get_search_results, Media
 from database import get_chat
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def forward(bot, message):
     m = await message.reply_text("Forwarding Started!")
 
     try:
-        while await Data.count_documents() != 0:
+        while await Media.count_documents() != 0:
             data = await get_search_results()
             if not data:
                 break
