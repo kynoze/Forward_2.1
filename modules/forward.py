@@ -13,11 +13,17 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 IST = pytz.timezone("Asia/Kolkata")
+
+# Global variables
 MessageCount = 0
 is_running = False
 
 @Client.on_message(filters.command("forward"))
 async def forward(bot, message):
+    """
+    Forward messages from DB to target chat one by one.
+    Handles FloodWait automatically and updates progress message.
+    """
     global is_running, MessageCount, FloodWaitTime
 
     if message.from_user.id not in OWNER_ID:
@@ -31,37 +37,48 @@ async def forward(bot, message):
         return await message.reply_text("First set target chat where you want to forward files!")
 
     is_running = True
+
     m = await message.reply_text("Forwarding Started!")
 
     try:
-        while await Media.count_documents() != 0:
+        while True:
             data = await get_search_results()
             if not data:
-                break
+                break  # exit if no more messages
 
             for msg in data:
                 try:
+                    
                     await copy_msg(msg, bot, message, chat_id)
                     await delete_data(msg)
+
                     MessageCount += 1
 
-                    datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
-                    await m.edit_text(
-                        f"Total Forwarded: <code>{MessageCount}</code>\n"
-                        f"Sleeping for {FloodWaitTime} Second\n"
-                        f"Last Forwarded at {datetime_ist}"
-                    )
-                    
+                    if MessageCount % 5 == 0:
+                        datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
+                        await m.edit_text(
+                            f"Total Forwarded: <code>{MessageCount}</code>\n"
+                            f"Sleeping for <code>{FloodWaitTime}</code> second{'s' if FloodWaitTime != 1 else ''}\n"
+                            f"Last Forwarded at {datetime_ist}"
+                        )
+
                 except Exception as e:
                     logger.exception(e)
                     continue
 
-        await m.edit_text(f"✅ Successfully Forwarded {MessageCount} messages")
+        # Final progress update
+        datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
+        await m.edit_text(
+            f"✅ Successfully Forwarded <code>{MessageCount}</code> messages\n"
+            f"Last Forwarded at {datetime_ist}"
+        )
 
     except Exception as e:
         logger.exception(e)
         await message.reply_text(f"Error: {e}")
 
     finally:
+        # Cleanup global variables
         is_running = False
+        FloodWaitTime = 0
         MessageCount = 0
