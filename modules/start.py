@@ -34,6 +34,8 @@ async def total(bot, message):
 
 @app.on_message(filters.private & filters.command(['set_channel']))
 async def set_target_channel(bot, message):
+    if message.from_user.id not in OWNER_ID:
+        await message.reply_text("Who the hell are you!!")
     try:
         _, chat_id = message.text.split(" ")
     except:
