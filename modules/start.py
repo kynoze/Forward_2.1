@@ -2,9 +2,9 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from bot import app
 from config import OWNER_ID
-from database.utils import Data
+from database.utils import Media
 from database import get_chat, add_chat
-from .forward import is_running
+from modules.forward import is_running
 
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
@@ -35,7 +35,7 @@ async def total(bot, message):
 
     msg = await message.reply("Counting total messages in DB...", quote=True)
     try:
-        total = await Data.count_documents()
+        total = await Media.count_documents()
         await msg.edit(f'Total Messages in DB: <b>{total}</b>')
     except Exception as e:
         await msg.edit(f'Error: {e}')
@@ -67,7 +67,7 @@ async def clear_database(bot, message):
 
     msg = await message.reply("🗑 Clearing database...")
     try:
-        deleted = await Data.collection.delete_many({})
+        deleted = await Media.collection.delete_many({})
         await msg.edit(f"✅ Database cleared.\nDeleted documents: {deleted.deleted_count}")
     except Exception as e:
         await msg.edit(f"❌ Error: {e}")
