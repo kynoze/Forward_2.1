@@ -1,31 +1,32 @@
-import os
-import sys 
-import math
-import time, re
-import asyncio 
+import asyncio
+from pyrogram.errors import FloodWait
+from database.utils import Media
 
-async def copy_msg(msg, bot, message, chat_id):
-   try:
-     await bot.send_cached_media(
-         chat_id=int(chat_id),
-         file_id=msg.file_id,
-         caption=msg.caption)
+async def copy_msg(msg, bot, message, chat_id, m, MessageCount):
+   try:                             
+       await bot.send_cached_media(
+           chat_id=int(chat_id),
+           file_id=msg.file_id,
+           caption=msg.caption)
+       return True
    except FloodWait as e:
-     await asyncio.sleep(e.value) 
-     await copy_msg(msg, bot, message, chat_id)
+     await m.edit_text(
+         f"Total Forwarded: <code>{MessageCount}</code>\n"
+         f"Sleeping for <code>{e.value}</code> second"
+     )
+     await asyncio.sleep(e.value)
+     await copy_msg(msg, bot, message, chat_id, m, MessageCount)
    except Exception as e:
      print(e)
+     return False
 
 async def delete_data(data):
-    await Data.collection.delete_one({
-        'use': data.use,
-        'file_id': data.file_id,
-        'caption': data.caption
+    result = await Media.collection.delete_one({
+        'use': 'forward'
     })
+    if result.deleted_count:
+        print(f"[DB] Deleted {data.file_id}")
+        return True
+    print(f"[DB] Not found: {data.file_id}")
+    return False
     
-def media(msg):
-  if msg.media:
-     media = getattr(msg, msg.media.value, None)
-     if media:
-        return getattr(media, 'file_id', None)
-  return None 
