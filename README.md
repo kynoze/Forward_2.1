@@ -8,7 +8,9 @@ A simple Telegram bot to **index messages/files from a source channel**, store t
 > ⚠️ **This bot indexes slowly!**  
 > It saves approximately **5 files per second** into the database.  
 > This is **intentional** — the bot checks **every file for duplicates** before saving to MongoDB to prevent storing the same file multiple times.  
-> Please be patient while indexing large channels — this helps maintain a clean, duplicate-free database.
+
+> 💬 Note: This is an open-source project made for learning and automation.
+> ***⚡ Your Choice — this repo may feel slow for you (due to duplicate checks), so use it only if accuracy matters to you!***
 ---
 ## **What it does**
 
