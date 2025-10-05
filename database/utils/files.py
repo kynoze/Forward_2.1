@@ -10,6 +10,7 @@ from config import COLLECTION_NAME
 class Media(Document):
     file_id = fields.StrField(attribute='_id', required=True)
     caption = fields.StrField(allow_none=True)
+    file_name = fields.StrField(allow_none=True)
     use = fields.StrField(required=True)
 
     class Meta:
