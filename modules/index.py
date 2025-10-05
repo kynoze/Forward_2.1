@@ -1,15 +1,16 @@
-# index.py
 import asyncio
 import time
 import logging
+from typing import Any
 from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from config import OWNER_ID, COLLECTION_NAME, SECONDARY_COLLECTION_NAME  # add SECONDARY_COLLECTION_NAME to config if you want a sec col
-from database.utils import save_file, temp, get_readable_time
+from config import OWNER_ID, COLLECTION_NAME
+from database.utils import temp, get_readable_time  # save_file moved to files.py; we'll import files.save_file below
 from database import db
 from bot import app
+from database.utils import save_file # import the save_file implementation from files.py
 
 logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
@@ -19,7 +20,7 @@ SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT
 
 
 @app.on_callback_query(filters.regex(r'^index'))
-async def index_files(bot, query):
+async def index_files(bot: Client, query):
     _, ident, chat, lst_msg_id, skip = query.data.split("#")
     msg = query.message
 
@@ -30,18 +31,16 @@ async def index_files(bot, query):
         except Exception:
             pass
 
-        # determine primary and secondary collections (Motor database)
+        # primary collection (Motor async collection)
         primary_col = db[COLLECTION_NAME]
-        sec_col = db[SECONDARY_COLLECTION_NAME] if hasattr(__import__('config'), 'SECONDARY_COLLECTION_NAME') else primary_col
-
-        await index_files_to_db(int(lst_msg_id), chat, msg, bot, int(skip), primary_col, sec_col)
+        await index_files_to_db(int(lst_msg_id), chat, msg, bot, int(skip), primary_col)
     elif ident == 'cancel':
         temp.CANCEL = True
         await msg.edit("🛑 Cancelling indexing process...")
 
 
 @app.on_message(filters.command('index') & filters.private)
-async def send_for_index(bot, message):
+async def send_for_index(bot: Client, message: Any):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
 
@@ -52,7 +51,7 @@ async def send_for_index(bot, message):
     user_msg = await bot.listen(chat_id=message.chat.id, user_id=message.from_user.id)
     await prompt.delete()
 
-    # accept link or forwarded message
+    # support either a t.me link or a forwarded channel message
     if getattr(user_msg, "text", None) and user_msg.text.startswith("https://t.me"):
         try:
             msg_link = user_msg.text.split("/")
@@ -92,20 +91,20 @@ async def send_for_index(bot, message):
     await message.reply(
         f'<b>📚 Indexing Confirmation</b>\n\n'
         f'📌 Channel: {chat.title}\n'
-        f'📝 Total Messages (last id): <code>{last_msg_id}</code>\n'
+        f'📝 Last message id: <code>{last_msg_id}</code>\n'
         f'⏩ Skip First: <code>{skip}</code>\n'
         f'📂 To Index: <code>{last_msg_id - skip if last_msg_id > skip else 0}</code>',
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 
-async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, primary_col, sec_col):
+async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, skip: int, primary_col) -> None:
     """
-    Improved indexing loop:
-      - uses iter_messages(chat, offset_id=lst_msg_id, reverse=True, limit=total_to_index)
-      - sleeps & retries on FloodWait (no recursion)
-      - thottles progress edits by time + count
-      - passes primary_col and sec_col to save_file(...)
+    Indexing loop using a single Mongo collection (primary_col).
+    - Uses iter_messages(offset_id=lst_msg_id, reverse=True, limit=total_to_index)
+    - Sleeps & retries on FloodWait (no recursion)
+    - Throttles progress edits
+    - Passes primary_col to save_file(media, col)
     """
     start_time = time.time()
     stats = {
@@ -139,7 +138,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, primary_col, sec_c
         # loop so we can sleep and retry on FloodWait without recursion
         while True:
             try:
-                async for message in bot.iter_messages(chat, lst_msg_id, skip if skip else 0):
+                async for message in bot.iter_messages(chat, offset_id=lst_msg_id, reverse=True, limit=total_to_index):
                     # cancellation
                     if temp.CANCEL:
                         temp.CANCEL = False
@@ -183,7 +182,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, primary_col, sec_c
                         else:
                             media.caption = message.caption
                             try:
-                                result = await save_file(media, primary_col, sec_col)
+                                result = await save_file(media, primary_col)
                                 if result == 'suc':
                                     stats['total_files'] += 1
                                 elif result == 'dup':
@@ -198,6 +197,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, primary_col, sec_c
                                 raise e
                             except Exception:
                                 stats['errors'] += 1
+                                logger.exception("Error saving media")
 
                     # progress update (time + count based)
                     now = time.time()
@@ -246,7 +246,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, primary_col, sec_c
                 except Exception:
                     pass
                 await asyncio.sleep(wait)
-                # loop and retry (note: we will re-run iter_messages from the same offset)
+                # loop and retry (note: this will re-run iter_messages from the same offset)
                 continue
 
             except Exception as e:
