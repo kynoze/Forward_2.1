@@ -7,7 +7,8 @@ async def copy_msg(msg, bot, message, chat_id, m, MessageCount):
        await bot.send_cached_media(
            chat_id=int(chat_id),
            file_id=msg.file_id,
-           caption=msg.caption
+           caption=msg.caption)
+       return True
    except FlodWait as e:
      await m.edit_text(
          f"Total Forwarded: <code>{MessageCount}</code>\n"
@@ -17,7 +18,7 @@ async def copy_msg(msg, bot, message, chat_id, m, MessageCount):
      await copy_msg(msg, bot, message, chat_id, m, MessageCount)
    except Exception as e:
      print(e)
-
+     return False
 
 async def delete_data(data):
     result = await Media.collection.delete_one({'_id': str(data.file_id)})
