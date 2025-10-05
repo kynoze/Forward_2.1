@@ -6,6 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import OWNER_ID
 from database.utils import save_file, temp, get_readable_time
+from src.database.utils import save_file, temp, get_readable_time
 from bot import app
 
 lock = asyncio.Lock()
@@ -28,10 +29,10 @@ async def index_files(bot, query):
         await msg.edit("🛑 Cancelling indexing process...")
 
 @app.on_message(filters.command('index') & filters.private)
-async def send_for_index(bot, message):
+ async def send_for_index(bot, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
-   
+        
     if lock.locked():
         return await message.reply('⚠️ Please wait until current process completes.')
 
@@ -155,24 +156,13 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                         stats['unsupported'] += 1
                         continue
 
-                    if message.caption:
-                        caption = msg.caption
-                    else:
-                        caption = file_name
-    
                     media = getattr(message, message.media.value, None)
                     if not media or media.mime_type not in ['video/mp4', 'video/x-matroska']:
                         stats['unsupported'] += 1
                         continue
 
-                    if message.caption:
-                        caption = msg.caption
-                    else:
-                        caption = file_name
-                    if not caption:
-                        caption = None
-   
-                    await save_file(media.file_id, caption)
+                    media.caption = message.caption
+                    tasks.append(save_file(media))
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -219,4 +209,4 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                 f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
                 f"⚠️ Errors: <code>{stats['errors']}</code>\n\n"
                 f"⏳ Duration: <code>{duration}</code>"
-                    )
+               )
