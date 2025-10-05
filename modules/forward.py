@@ -46,6 +46,7 @@ async def forward(bot, message):
         while await Media.count_documents() != 0:
             data = await get_search_results()
             if not data:
+                is_running = False
                 break
 
             for msg in data:
@@ -54,6 +55,7 @@ async def forward(bot, message):
                     await copy_msg(msg, bot, message, chat_id, m, MessageCount)
                     delete = await delete_data(msg)
                     if not delete:
+                        is_running = False
                         break
 
                     MessageCount += 1
@@ -80,6 +82,7 @@ async def forward(bot, message):
 
     except Exception as e:
         logger.exception(e)
+        is_running = False
         await message.reply_text(f"Error: {e}")
 
     finally:
