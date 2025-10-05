@@ -1,24 +1,24 @@
-import asyncio
+import logging
 from pyrogram.errors import FloodWait
 from database.utils import Media
 
-async def copy_msg(msg, bot, message, chat_id, m, MessageCount):
-   try:                             
-       await bot.send_cached_media(
-           chat_id=int(chat_id),
-           file_id=msg.file_id,
-           caption=msg.caption)
-       return True
-   except FloodWait as e:
-     await m.edit_text(
-         f"Total Forwarded: <code>{MessageCount}</code>\n"
-         f"Sleeping for <code>{e.value}</code> second"
-     )
-     await asyncio.sleep(e.value)
-     await copy_msg(msg, bot, message, chat_id, m, MessageCount)
-   except Exception as e:
-     print(e)
-     return False
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+async def copy_msg(msg, bot, message, chat_id):
+    try:
+        await bot.send_cached_media(
+            chat_id=int(chat_id),
+            file_id=msg.file_id,
+            caption=msg.caption
+        )
+        return True, None
+    except FloodWait as e:
+        logger.warning(f"FloodWait encountered: {e.value} seconds")
+        return False, e.value
+    except Exception as e:
+        logger.exception("Failed to copy message")
+        return False, None
 
 async def delete_data(data):
     result = await Media.collection.delete_one({
@@ -29,4 +29,3 @@ async def delete_data(data):
         return True
     print(f"[DB] Not found: {data.file_id}")
     return False
-    
