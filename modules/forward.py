@@ -39,6 +39,7 @@ async def forward(bot, message):
 
     is_running = True
     errors = 0
+    delete = False
 
     m = await message.reply_text("Forwarding Started!")
 
@@ -52,8 +53,9 @@ async def forward(bot, message):
             for msg in data:
                 try:
                     
-                    await copy_msg(msg, bot, message, chat_id, m, MessageCount)
-                    delete = await delete_data(msg)
+                    success = await copy_msg(msg, bot, message, chat_id, m, MessageCount)
+                    if success:
+                        delete = await delete_data(msg)
                     if not delete:
                         is_running = False
                         break
