@@ -138,7 +138,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
         # loop so we can sleep and retry on FloodWait without recursion
         while True:
             try:
-                async for message in bot.iter_messages(chat, offset_id=lst_msg_id, reverse=True, limit=total_to_index):
+                async for message in bot.iter_messages(chat, lst_msg_id, skip if skip else 0):
                     # cancellation
                     if temp.CANCEL:
                         temp.CANCEL = False
