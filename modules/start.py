@@ -6,16 +6,23 @@ from database.utils import Media
 from database import get_chat, add_chat
 from modules.forward import forward_lock
 
-@app.on_message(filters.command("help") & filters.private)
+@app.on_message(filters.command("start") & filters.private)
 async def help_command(client: Client, message: Message):
     text = (
         "<b>🤖 Bot Admin Commands</b>\n\n"
-        "/index - Index files from channel\n"
-        "/total - Check total files in DB\n"
-        "/cleardb - Clear all files from database\n"
-        "/status - Bot current status\n"
-        "/set_channel - Set target channel\n"
-        "/forward - Start forwarding\n"
+        "/index - Index files from a channel into the database\n"
+        "/total - Check total files in the database\n"
+        "/cleardb - Clear all files from the database\n"
+        "/status - Check bot's current status\n"
+        "/set_channel - Set target channel (required before forwarding)\n"
+        "/forward - Start forwarding files\n\n"
+        "<b>How to Use:</b>\n"
+        "1. <b>Set Target Channel:</b> Use /set_channel to specify where files will be forwarded. Must be done before /forward.\n"
+        "2. <b>Indexing:</b> Use /index to index messages from the source channel into the database.\n"
+        "3. <b>Forwarding:</b> After setting the target channel and indexing, use /forward to start forwarding.\n\n"
+        "<b>Notes:</b>\n"
+        "- If the source channel is private, the bot needs to be an admin.\n"
+        "- <code>SKIP_NO</code>: Specify the message number to start forwarding from. Use 0 to start from the beginning."
     )
 
     buttons = [
