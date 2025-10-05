@@ -69,6 +69,7 @@ async def save_file(media: Any, col) -> str:
         return 'err'
 
     file_name_raw = getattr(media, "file_name", None) or getattr(media, "file_path", None)
+    org_file_name = file_name_raw
     file_name_norm = _normalize_text(file_name_raw)
 
     raw_caption = None
@@ -82,6 +83,7 @@ async def save_file(media: Any, col) -> str:
             raw_caption = text
         else:
             raw_caption = str(cap_obj)
+    org_caption = raw_caption
     caption_norm = _normalize_text(raw_caption)
 
     # Duplicate check
@@ -94,8 +96,8 @@ async def save_file(media: Any, col) -> str:
     # Prepare document
     file = Media(
         file_id=file_id,
-        file_name=file_name_norm,
-        caption=caption_norm,
+        file_name=org_file_name,
+        caption=org_caption,
         use='forward',
     )
     try:
