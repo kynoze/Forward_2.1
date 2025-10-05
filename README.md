@@ -3,7 +3,13 @@
 A simple Telegram bot to **index messages/files from a source channel**, store them in a **database**, and **forward them to a target channel**.
 
 ---
+## ⚠️ **Important Warning**
 
+> ⚠️ **This bot indexes slowly!**  
+> It saves approximately **5 files per second** into the database.  
+> This is **intentional** — the bot checks **every file for duplicates** before saving to MongoDB to prevent storing the same file multiple times.  
+> Please be patient while indexing large channels — this helps maintain a clean, duplicate-free database.
+---
 ## **What it does**
 
 - ✅ Index files/messages from any channel  
