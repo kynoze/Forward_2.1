@@ -23,10 +23,17 @@ async def copy_msg(msg, bot, message, chat_id):
             print(f"[Error] copy_msg: {e}")
             break
 
+
 async def delete_data(data):
-    """
-    Delete one specific media record from the MongoDB collection.
-    """
+    result = await Media.collection.delete_one({'_id': str(data.file_id)})
+    if result.deleted_count:
+        print(f"[DB] Deleted {file_id}")
+        return True
+    print(f"[DB] Not found: {file_id}")
+    return False
+    
+f = """
+async def delete_data(data):
     try:
         result = await Media.collection.delete_one({
             'use': data.use,
@@ -39,3 +46,4 @@ async def delete_data(data):
             print(f"[DB] No record found for {data.file_id}")
     except Exception as e:
         print(f"[Error] delete_data: {e}")
+"""
