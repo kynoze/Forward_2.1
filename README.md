@@ -11,7 +11,7 @@ A simple Telegram bot to **index messages/files from a source channel**, store t
 - ✅ Forward files to a set target channel  
 - ✅ View total files stored  
 - ✅ Clear database with confirmation  
-- ✅ Owner-only access for sensitive commands  
+- ✅ Owner-only access
 
 ---
 
@@ -28,3 +28,24 @@ A simple Telegram bot to **index messages/files from a source channel**, store t
 
 ---
 
+## **Environment Variables**
+
+The bot requires the following environment variables.
+
+```env
+# Telegram API credentials
+API_ID=123456             # Your Telegram API ID (integer)
+API_HASH=your_api_hash     # Your Telegram API Hash
+TG_BOT_TOKEN=bot_token_here # Your Telegram Bot Token
+
+# Owner IDs (space-separated)
+OWNER_ID=12345678 98765432
+
+# MongoDB connection URL
+MONGO_URL=mongodb+srv://username:password@cluster0.mongodb.net/?retryWrites=true&w=majority
+
+# Cache time in seconds (optional, default 300)
+CACHE_TIME=300
+
+# MongoDB collection name (optional, default "forward2025")
+COLLECTION_NAME=forward2025
