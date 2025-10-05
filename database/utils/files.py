@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class Media(Document):
     file_id = fields.StrField(attribute='_id', required=True)
     caption = fields.StrField(allow_none=True)
+    #org_caption = fields.StrField(allow_none=True)
     file_name = fields.StrField(allow_none=True)
     use = fields.StrField(required=True)
 
@@ -69,7 +70,6 @@ async def save_file(media: Any, col) -> str:
         return 'err'
 
     file_name_raw = getattr(media, "file_name", None) or getattr(media, "file_path", None)
-    org_file_name = file_name_raw
     file_name_norm = _normalize_text(file_name_raw)
 
     raw_caption = None
@@ -96,7 +96,7 @@ async def save_file(media: Any, col) -> str:
     # Prepare document
     file = Media(
         file_id=file_id,
-        file_name=org_file_name,
+        file_name=file_name_norm,
         caption=org_caption,
         use='forward',
     )
