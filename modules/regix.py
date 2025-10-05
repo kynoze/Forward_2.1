@@ -1,5 +1,6 @@
 import logging
 from pyrogram.errors import FloodWait
+from database.utils import Media
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
