@@ -155,13 +155,24 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                         stats['unsupported'] += 1
                         continue
 
+                    if message.caption:
+                        caption = msg.caption
+                    else:
+                        caption = file_name
+    
                     media = getattr(message, message.media.value, None)
                     if not media or media.mime_type not in ['video/mp4', 'video/x-matroska']:
                         stats['unsupported'] += 1
                         continue
 
-                    media.caption = message.caption
-                    tasks.append(save_file(media))
+                    if message.caption:
+                        caption = msg.caption
+                    else:
+                        caption = file_name
+                    if not caption:
+                        caption = None
+   
+                    await save_file(media.file_id, caption)
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
