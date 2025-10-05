@@ -2,7 +2,7 @@ import logging
 import asyncio
 import pytz
 from datetime import datetime
-from pyrogram import Client, filters
+from pyrogram import filters
 from pyrogram.errors import FloodWait, MessageNotModified, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from .regix import copy_msg, delete_data
@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 IST = pytz.timezone("Asia/Kolkata")
-
 forward_lock = asyncio.Lock()
 cancel_forwarding = {}
 
@@ -37,6 +36,20 @@ def build_cancel_kb(user_id):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
     ])
+
+async def safe_edit_text(m, text, kb=None, last_text=None):
+    """Edit only if content changed and handle Telegram limits/errors gracefully."""
+    try:
+        if last_text is not None and text == last_text:
+            return  # Avoid unnecessary edits
+        await m.edit_text(text, reply_markup=kb)
+    except MessageNotModified:
+        pass  # Telegram: message is not modified
+    except FloodWait as e:
+        logger.warning(f"FloodWait while editing progress message: {e.value}")
+        await asyncio.sleep(e.value)
+    except RPCError as e:
+        logger.error(f"RPCError while editing progress message: {e}")
 
 @app.on_message(filters.command("forward"))
 async def forward(bot, message):
@@ -134,20 +147,6 @@ async def forward(bot, message):
 
         finally:
             cancel_forwarding[user_id] = False
-
-async def safe_edit_text(m, text, kb=None, last_text=None):
-    """Edit the message only if text changed, and catch Telegram errors."""
-    try:
-        if last_text is not None and text == last_text:
-            return  # Avoid unnecessary edits
-        await m.edit_text(text, reply_markup=kb)
-    except MessageNotModified:
-        pass  # Don't care, content didn't change
-    except FloodWait as e:
-        logger.warning(f"FloodWait while editing progress message: {e.value}")
-        await asyncio.sleep(e.value)
-    except RPCError as e:
-        logger.error(f"RPCError while editing progress message: {e}")
 
 @app.on_callback_query(filters.regex(r"^cancel_forward_(\d+)$"))
 async def cancel_forwarding_callback(client, callback_query):
