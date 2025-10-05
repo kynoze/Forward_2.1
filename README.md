@@ -59,3 +59,9 @@ CACHE_TIME=300
 # MongoDB collection name (optional, default "forward2025")
 COLLECTION_NAME=forward2025
 ```
+---
+## Screenshot
+![Demo Screenshot](https://i.ibb.co/JZyLHpn/Screenshot-2025-10-06-02-01-33-607-ir-ilmili-telegraph.jpg)
+
+---
+### > [Lx 0980](https://github.com/lx0980)
