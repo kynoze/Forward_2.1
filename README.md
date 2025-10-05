@@ -14,7 +14,7 @@ A simple Telegram bot to **index messages/files from a source channel**, store t
 ---
 ## **What it does**
 
-- ✅ Index files/messages from any channel  
+- ✅ Index files/videos from any public channel ***without admin permission***, in private channel bot need admin permission. 
 - ✅ Store files in a MongoDB database  
 - ✅ Forward files to a set target channel  
 - ✅ View total files stored  
@@ -33,7 +33,7 @@ A simple Telegram bot to **index messages/files from a source channel**, store t
 | `/cleardb` | Clear all files from the database (with confirmation) |
 | `/status` | Check bot’s current status |
 | `/set_channel` | Set the target channel (required before forwarding) |
-| `/forward` | Forward files from the database |
+| `/forward` | Forward files to target chat from the database |
 
 ---
 
