@@ -106,7 +106,17 @@ async def forward(bot, message):
                             )
                             await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
                             last_progress_text = progress_text
-                            await asyncio.sleep(floodwait_seconds)
+
+                            slept = 0
+                            interval = 1  # seconds
+                            while slept < floodwait_seconds:
+                                if cancel_forwarding.get(user_id):
+                                    await safe_edit_text(m, "❌ Forwarding cancelled by user.")
+                                    break
+                                await asyncio.sleep(min(interval, floodwait_seconds - slept))
+                                slept += interval
+                            if cancel_forwarding.get(user_id):
+                                break
                             floodwait_attempts += 1
                             continue
                         break
