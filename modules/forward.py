@@ -4,7 +4,7 @@ import pytz
 from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
-from .regix import copy_msg, delete_data, FloodWaitTime
+from .regix import copy_msg, delete_data
 from config import OWNER_ID
 from database.utils import get_search_results, Media
 from database import get_chat
@@ -51,8 +51,10 @@ async def forward(bot, message):
             for msg in data:
                 try:
                     
-                    await copy_msg(msg, bot, message, chat_id)
-                    await delete_data(msg)
+                    await copy_msg(msg, bot, message, chat_id, m, MessageCount)
+                    delete = await delete_data(msg)
+                    if not delete:
+                        break
 
                     MessageCount += 1
 
