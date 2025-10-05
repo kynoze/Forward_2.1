@@ -29,7 +29,7 @@ async def index_files(bot, query):
         await msg.edit("🛑 Cancelling indexing process...")
 
 @app.on_message(filters.command('index') & filters.private)
- async def send_for_index(bot, message):
+async def send_for_index(bot, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
         
