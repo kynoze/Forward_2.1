@@ -79,7 +79,7 @@ async def forward(bot, message):
         update_interval = 5  # seconds between forced progress updates
 
         try:
-            while await Media.count_documents() != 0:
+            while True:
                 if cancel_forwarding.get(user_id):
                     await safe_edit_text(m, "❌ Forwarding cancelled by user.")
                     break
