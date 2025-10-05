@@ -1,10 +1,10 @@
-# 🤖 Telegram File Forwarding Bot
+#  Forward 2.1
 
 A simple Telegram bot to **index messages/files from a source channel**, store them in a **database**, and **forward them to a target channel**.
 
 ---
 
-## **Features**
+## **What it does**
 
 - ✅ Index files/messages from any channel  
 - ✅ Store files in a MongoDB database  
@@ -12,6 +12,7 @@ A simple Telegram bot to **index messages/files from a source channel**, store t
 - ✅ View total files stored  
 - ✅ Clear database with confirmation  
 - ✅ Owner-only access
+- ✅ Bot Index message from channel and saves to database, further forwards and deletes each messages from database.Use of database was to Remove duplicacy of files.
 
 ---
 
