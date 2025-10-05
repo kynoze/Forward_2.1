@@ -15,8 +15,6 @@ logger.setLevel(logging.INFO)
 
 IST = pytz.timezone("Asia/Kolkata")
 
-# Global variables
-MessageCount = 0
 is_running = False
 
 @app.on_message(filters.command("forward"))
@@ -25,7 +23,7 @@ async def forward(bot, message):
     Forward messages from DB to target chat one by one.
     Handles FloodWait automatically and updates progress message.
     """
-    global is_running, MessageCount
+    global is_running
 
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
@@ -40,6 +38,8 @@ async def forward(bot, message):
     is_running = True
     errors = 0
     delete = False
+    MessageCount = 0
+    stscount = 0
 
     m = await message.reply_text("Forwarding Started!")
 
@@ -61,9 +61,11 @@ async def forward(bot, message):
                         break
 
                     MessageCount += 1
+                    stscount += 1
 
-                    if MessageCount % 10 == 0:
+                    if stscount == 10:
                         datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
+                        stscount = 0
                         await m.edit_text(
                             f"Total Forwarded: <code>{MessageCount}</code>\n"
                             f"Total Error: <code>{errors}</code>\n"
@@ -73,8 +75,10 @@ async def forward(bot, message):
                 except Exception as e:
                     logger.exception(e)
                     errors += 1
-                    continue    
+                    continue
                     
+                await asyncio.sleep(1)
+                
         datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
         await m.edit_text(
             f"✅ Successfully Forwarded <code>{MessageCount}</code> messages\n"
