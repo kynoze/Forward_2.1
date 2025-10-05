@@ -9,7 +9,7 @@ async def copy_msg(msg, bot, message, chat_id, m, MessageCount):
            file_id=msg.file_id,
            caption=msg.caption)
        return True
-   except FlodWait as e:
+   except FloodWait as e:
      await m.edit_text(
          f"Total Forwarded: <code>{MessageCount}</code>\n"
          f"Sleeping for <code>{e.value}</code> second"
