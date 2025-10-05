@@ -21,16 +21,11 @@ async def copy_msg(msg, bot, message, chat_id):
         return False, None
 
 async def delete_data(data):
-    try:
-        result = await Media.collection.delete_one({
-            'file_id': data.file_id, 
-            'use': 'forward'
-        })
-        if result.deleted_count:
-            logger.info(f"[DB] Deleted {data.file_id}")
-            return True
-        logger.warning(f"[DB] Not found: {data.file_id}")
-        return False
-    except Exception as e:
-        logger.exception(f"DB error deleting {data.file_id}")
-        return False
+    result = await Media.collection.delete_one({
+        'use': 'forward'
+    })
+    if result.deleted_count:
+        print(f"[DB] Deleted {data.file_id}")
+        return True
+    print(f"[DB] Not found: {data.file_id}")
+    return False
