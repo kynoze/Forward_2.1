@@ -40,10 +40,11 @@ async def save_file(media):
         print(f"Error saving file: {e}")
         return 'err'
 
-
-# ✅ Get next file to forward
+    
 async def get_search_results():
-    filter = {'use': 'forward'}
-    cursor = Media.find(filter).sort('$natural', 1).limit(1)
+    filter = {'use': "forward"}
+    cursor = Media.find(filter)
+    cursor.sort('$natural', 1)
+    cursor.skip(0).limit(1)
     messages = await cursor.to_list(length=1)
     return messages
