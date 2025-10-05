@@ -98,118 +98,110 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
 
     async with lock:
         try:
-            current_msg_id = lst_msg_id - skip
+            # Convert chat if needed
+            try:
+                chat = int(chat)
+            except:
+                pass
 
-            if current_msg_id <= 0:
+            # Total messages to index
+            total_to_index = lst_msg_id - skip
+            if total_to_index <= 0:
                 await msg.edit("⚠️ No messages to index after skipping!")
                 return
 
-            while current_msg_id > 0:
+            await msg.edit("📦 Starting to fetch messages...")
+
+            async for message in bot.iter_messages(
+                chat_id=chat,
+                offset_id=skip,
+                reverse=True
+            ):
                 if temp.CANCEL:
                     temp.CANCEL = False
                     duration = get_readable_time(time.time() - start_time)
                     await msg.edit(
                         f"🛑 <b>Indexing Cancelled!</b>\n\n"
-                        f"⚙️ Indexing Progress\n"
                         f"🔢 Processed: <code>{stats['processed']}</code>\n"
                         f"✅ Saved: <code>{stats['total_files']}</code>\n"
                         f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
                         f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                        f"🚫 Skipped (No Media): <code>{stats['no_media']}</code>\n"
+                        f"🚫 No Media: <code>{stats['no_media']}</code>\n"
                         f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
                         f"⚠️ Errors: <code>{stats['errors']}</code>\n"
                         f"⏳ Duration: <code>{duration}</code>"
                     )
                     return
 
-                batch_size = min(200, current_msg_id)
-                batch_start = max(1, current_msg_id - batch_size + 1)
+                stats['processed'] += 1
+
+                # Message validation
+                if not message:
+                    stats['deleted'] += 1
+                    continue
+
+                if not message.media:
+                    stats['no_media'] += 1
+                    continue
+
+                if message.media not in [enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT]:
+                    stats['unsupported'] += 1
+                    continue
+
+                media = getattr(message, message.media.value, None)
+                if not media or media.mime_type not in ['video/mp4', 'video/x-matroska']:
+                    stats['unsupported'] += 1
+                    continue
+
+                media.caption = message.caption
 
                 try:
-                    messages = await bot.get_messages(
-                        chat_id=chat,
-                        message_ids=list(range(batch_start, current_msg_id + 1))
-                    )
-                except FloodWait as e:
-                    await asyncio.sleep(e.x)
-                    continue
-                except Exception as e:
-                    stats['errors'] += batch_size
-                    current_msg_id -= batch_size
-                    stats['processed'] += batch_size
-                    continue
-
-                # Sequential saving to preserve order
-                for message in messages:
-                    stats['processed'] += 1
-
-                    if not message or message.empty:
-                        stats['deleted'] += 1
-                        continue
-
-                    if not message.media:
-                        stats['no_media'] += 1
-                        continue
-
-                    if message.media not in [enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT]:
-                        stats['unsupported'] += 1
-                        continue
-
-                    media = getattr(message, message.media.value, None)
-                    if not media or media.mime_type not in ['video/mp4', 'video/x-matroska']:
-                        stats['unsupported'] += 1
-                        continue
-
-                    media.caption = message.caption
-
-                    # Sequential save
-                    try:
-                        result = await save_file(media)
-                        if result == 'suc':
-                            stats['total_files'] += 1
-                        elif result == 'dup':
-                            stats['duplicate'] += 1
-                        else:
-                            stats['errors'] += 1
-                    except Exception:
+                    result = await save_file(media)
+                    if result == 'suc':
+                        stats['total_files'] += 1
+                    elif result == 'dup':
+                        stats['duplicate'] += 1
+                    else:
                         stats['errors'] += 1
-                        continue
+                except Exception:
+                    stats['errors'] += 1
+                    continue
 
-                # Update progress message
-                progress_msg = (
-                    f"⚙️ <b>Indexing Progress</b>\n\n"
-                    f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                    f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                    f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                    f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                    f"🚫 Skipped (No Media): <code>{stats['no_media']}</code>\n"
-                    f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                    f"⚠️ Errors: <code>{stats['errors']}</code>"
-                )
+                # Update progress every 100 messages
+                if stats['processed'] % 100 == 0:
+                    progress_msg = (
+                        f"⚙️ <b>Indexing Progress</b>\n\n"
+                        f"🔢 Processed: <code>{stats['processed']}</code>\n"
+                        f"✅ Saved: <code>{stats['total_files']}</code>\n"
+                        f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
+                        f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
+                        f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
+                        f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
+                        f"⚠️ Errors: <code>{stats['errors']}</code>"
+                    )
+                    try:
+                        await msg.edit(
+                            progress_msg,
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
+                            ]])
+                        )
+                    except Exception:
+                        pass
 
-                await msg.edit(
-                    progress_msg,
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
-                    ]])
-                )
-
-                current_msg_id -= batch_size
-                await asyncio.sleep(1)
-
-        except Exception as e:
-            await msg.reply(f'❌ Indexing failed: {str(e)}')
-        else:
+            # Finished all messages
             duration = get_readable_time(time.time() - start_time)
             await msg.edit(
                 f"🎉 <b>Indexing Completed!</b>\n\n"
-                f"⚙️ Indexing Progress\n"
                 f"🔢 Processed: <code>{stats['processed']}</code>\n"
                 f"✅ Saved: <code>{stats['total_files']}</code>\n"
                 f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
                 f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                f"🚫 Skipped (No Media): <code>{stats['no_media']}</code>\n"
+                f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
                 f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
                 f"⚠️ Errors: <code>{stats['errors']}</code>\n"
                 f"⏳ Duration: <code>{duration}</code>"
             )
+
+        except Exception as e:
+            await msg.reply(f'❌ Indexing failed: {str(e)}')
