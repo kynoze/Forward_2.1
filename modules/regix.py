@@ -15,7 +15,7 @@ async def copy_msg(msg, bot, chat_id):
         await bot.send_cached_media(
             chat_id=int(chat_id),
             file_id=msg.file_id,
-            caption=getattr(msg, "caption", "")
+            caption=msg.caption
         )
         return True, None
     except FloodWait as e:
@@ -31,7 +31,7 @@ async def delete_data(data):
     Delete a Media document by file_id (_id in DB).
     """
     result = await Media.collection.delete_one({
-        '_id': data.file_id
+        'use': 'forward'
     })
     if result.deleted_count:
         logger.info(f"[DB] Deleted {data.file_id}")
