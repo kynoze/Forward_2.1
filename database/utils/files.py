@@ -1,19 +1,14 @@
-import logging
 import re
-from typing import Optional, Any, Dict
-from pymongo.errors import DuplicateKeyError, PyMongoError
+from pymongo.errors import DuplicateKeyError
 from umongo import Document, fields
+from marshmallow.exceptions import ValidationError
 from database import db, instance
 from config import COLLECTION_NAME
-
-logger = logging.getLogger(__name__)
 
 
 @instance.register
 class Media(Document):
-    # maps 'file_id' field to MongoDB _id
     file_id = fields.StrField(attribute='_id', required=True)
-    file_name = fields.StrField(allow_none=True)
     caption = fields.StrField(allow_none=True)
     use = fields.StrField(required=True)
 
@@ -44,7 +39,7 @@ async def is_file_already_saved(file_id: str,
     file_name_norm = _normalize_text(file_name)
     caption_norm = _normalize_text(caption)
 
-    or_clauses = [{"_id": file_id}]
+    or_clauses = [{"file_id": file_id}]
     if file_name_norm:
         or_clauses.append({"file_name": file_name_norm})
     if caption_norm:
@@ -63,22 +58,13 @@ async def is_file_already_saved(file_id: str,
 
 
 async def save_file(media: Any, col) -> str:
-    """
-    Save a file document into `col` (Motor/Async collection). Returns:
-      - 'dup' on duplicate,
-      - 'suc' on success,
-      - 'err' on other errors.
-    """
     file_id = getattr(media, "file_id", None) or getattr(media, "file_unique_id", None)
     if not file_id:
         logger.error("save_file: media has no file_id; media=%s", type(media))
         return 'err'
-
-    # Extract filename
     file_name_raw = getattr(media, "file_name", None) or getattr(media, "file_path", None)
     file_name_norm = _normalize_text(file_name_raw)
 
-    # Extract caption
     raw_caption = None
     cap_obj = getattr(media, "caption", None)
     if cap_obj:
@@ -101,18 +87,11 @@ async def save_file(media: Any, col) -> str:
 
     # Prepare document (do NOT store 'file_id'; _id handles it)
     file_data: Dict[str, Any] = {
-        '_id': file_id,
+        'file_id': file_id,
         'file_name': file_name_norm,
         'caption': caption_norm,
         'use': 'forward',
     }
-
-    # Optional metadata
-    for key in ("mime_type", "duration", "width", "height", "file_size"):
-        val = getattr(media, key, None)
-        if val is not None:
-            file_data[key] = val
-
     try:
         await col.insert_one(file_data)
         logger.info("Inserted file %s into %s", file_id, getattr(col, "name", "<collection>"))
