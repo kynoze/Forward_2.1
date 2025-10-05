@@ -58,3 +58,9 @@ CACHE_TIME=300
 
 # MongoDB collection name (optional, default "forward2025")
 COLLECTION_NAME=forward2025
+
+Developed by: @username
+❤️ Open-source and free to use — your choice if it fits your needs!
+
+# 🖼 Demo Screenshot
+https://i.ibb.co/JZyLHpn/Screenshot-2025-10-06-02-01-33-607-ir-ilmili-telegraph.jpg
