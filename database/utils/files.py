@@ -4,7 +4,11 @@ from umongo import Document, fields
 from marshmallow.exceptions import ValidationError
 from database import db, instance
 from config import COLLECTION_NAME
+import logging
+from typing import Any, Optional
+from pymongo.errors import PyMongoError
 
+logger = logging.getLogger(__name__)
 
 @instance.register
 class Media(Document):
@@ -63,6 +67,7 @@ async def save_file(media: Any, col) -> str:
     if not file_id:
         logger.error("save_file: media has no file_id; media=%s", type(media))
         return 'err'
+
     file_name_raw = getattr(media, "file_name", None) or getattr(media, "file_path", None)
     file_name_norm = _normalize_text(file_name_raw)
 
@@ -86,16 +91,15 @@ async def save_file(media: Any, col) -> str:
     except Exception:
         logger.exception("Duplicate check failed; proceeding to insert for file_id=%s", file_id)
 
-    # Prepare document (do NOT store 'file_id'; _id handles it)
+    # Prepare document
     file = Media(
-        'file_id': file_id,
-        'file_name': file_name_norm,
-        'caption': caption_norm,
-        'use': 'forward',
+        file_id=file_id,
+        file_name=file_name_norm,
+        caption=caption_norm,
+        use='forward',
     )
     try:
         await file.commit()
-        #logger.info("Inserted file %s into %s", file_id, getattr(col, "name", "<collection>"))
         return 'suc'
     except DuplicateKeyError:
         logger.warning("DuplicateKeyError while inserting %s", file_id)
