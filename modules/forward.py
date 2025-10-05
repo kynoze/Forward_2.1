@@ -93,8 +93,10 @@ async def forward(bot, message):
                         await safe_edit_text(m, "❌ Forwarding cancelled by user.")
                         break
 
-                    # Retry logic for FloodWait
-                    while True:
+                    # Limit FloodWait retries to 5
+                    floodwait_attempts = 0
+                    max_floodwait_attempts = 5
+                    while floodwait_attempts < max_floodwait_attempts:
                         success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
                         if floodwait_seconds:
                             progress_text = build_progress_text(
@@ -105,8 +107,14 @@ async def forward(bot, message):
                             await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
                             last_progress_text = progress_text
                             await asyncio.sleep(floodwait_seconds)
+                            floodwait_attempts += 1
                             continue
                         break
+                    else:
+                        # Exceeded max floodwait attempts
+                        logger.error(f"FloodWait loop exceeded for message: {msg}")
+                        errors += 1
+                        continue
 
                     if not success:
                         logger.error(f"Failed to copy message: {msg}")
@@ -117,7 +125,7 @@ async def forward(bot, message):
                     if not deleted:
                         logger.error(f"Failed to delete message data for msg: {msg}")
                         errors += 1
-                        continue
+                        break  # Break the message loop if deletion fails
 
                     message_count += 1
 
