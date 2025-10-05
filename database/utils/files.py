@@ -110,6 +110,7 @@ async def save_file(media: Any, col) -> str:
         'file_id': file_id,
         'file_name': file_name_norm,
         'caption': caption_norm,
+        'use: 'forward', 
     }
 
     # Optionally include other metadata if available (safe getattr)
