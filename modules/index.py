@@ -110,14 +110,14 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                     duration = get_readable_time(time.time() - start_time)
                     await msg.edit(
                         f"🛑 <b>Indexing Cancelled!</b>\n\n"
-                        f"⚙️ Indexing Progress\n\n"
+                        f"⚙️ Indexing Progress\n"
                         f"🔢 Processed: <code>{stats['processed']}</code>\n"
                         f"✅ Saved: <code>{stats['total_files']}</code>\n"
                         f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
                         f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
                         f"🚫 Skipped (No Media): <code>{stats['no_media']}</code>\n"
                         f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                        f"⚠️ Errors: <code>{stats['errors']}</code>\n\n"
+                        f"⚠️ Errors: <code>{stats['errors']}</code>\n"
                         f"⏳ Duration: <code>{duration}</code>"
                     )
                     return
@@ -139,7 +139,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                     stats['processed'] += batch_size
                     continue
 
-                tasks = []
+                # Sequential saving to preserve order
                 for message in messages:
                     stats['processed'] += 1
 
@@ -161,18 +161,21 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                         continue
 
                     media.caption = message.caption
-                    tasks.append(save_file(media))
 
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                for result in results:
-                    if result == 'suc':
-                        stats['total_files'] += 1
-                    elif result == 'dup':
-                        stats['duplicate'] += 1
-                    elif isinstance(result, Exception):
+                    # Sequential save
+                    try:
+                        result = await save_file(media)
+                        if result == 'suc':
+                            stats['total_files'] += 1
+                        elif result == 'dup':
+                            stats['duplicate'] += 1
+                        else:
+                            stats['errors'] += 1
+                    except Exception:
                         stats['errors'] += 1
+                        continue
 
+                # Update progress message
                 progress_msg = (
                     f"⚙️ <b>Indexing Progress</b>\n\n"
                     f"🔢 Processed: <code>{stats['processed']}</code>\n"
@@ -193,19 +196,20 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
 
                 current_msg_id -= batch_size
                 await asyncio.sleep(1)
+
         except Exception as e:
             await msg.reply(f'❌ Indexing failed: {str(e)}')
         else:
             duration = get_readable_time(time.time() - start_time)
             await msg.edit(
                 f"🎉 <b>Indexing Completed!</b>\n\n"
-                f"⚙️ Indexing Progress\n\n"
+                f"⚙️ Indexing Progress\n"
                 f"🔢 Processed: <code>{stats['processed']}</code>\n"
                 f"✅ Saved: <code>{stats['total_files']}</code>\n"
                 f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
                 f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
                 f"🚫 Skipped (No Media): <code>{stats['no_media']}</code>\n"
                 f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                f"⚠️ Errors: <code>{stats['errors']}</code>\n\n"
+                f"⚠️ Errors: <code>{stats['errors']}</code>\n"
                 f"⏳ Duration: <code>{duration}</code>"
-               )
+            )
