@@ -14,28 +14,40 @@ class Media(Document):
     class Meta:
         collection_name = COLLECTION_NAME
 
-# ✅ Save file to MongoDB, skip if duplicate
-async def save_file(media):
-    file_name = getattr(media, "file_name", "Unnamed File")
-    caption = media.caption.html if media.caption else re.sub(r"[_\-\.]+", " ", file_name)
+def is_file_already_saved(file_id, file_name, caption, col, sec_col):
+    """Check if the file is already saved in either collection (by id, name, or caption)."""
+    queries = [
+        {'file_id': file_id},
+        {'file_name': file_name},
+        {'caption': caption},
+    ]
 
-    # Check for duplicate before saving
-    existing = await Media.find_one({'_id': media.file_id})
-    if existing:
-        return 'dup'  # Duplicate found, skip saving
+    for collection in [col, sec_col]:
+        for query in queries:
+            if collection.find_one(query):
+                print(f"Duplicate found ({query}) in {collection.name}. Skipping save.")
+                return True
+    return False
+
+# Usage in your save function
+async def save_file(media, col, sec_col):
+    file_id = media.file_id
+    file_name = getattr(media, "file_name", "Unnamed File")
+    caption = media.caption.html if media.caption else "No Caption"
+
+    if is_file_already_saved(file_id, file_name, caption, col, sec_col):
+        print("Duplicate file. Skipping save.")
+        return 'dup'
 
     try:
-        file = Media(
-            use='forward',
-            file_id=media.file_id,
-            caption=caption
-        )
-        await file.commit()
+        file_data = {
+            'file_id': file_id,
+            'file_name': file_name,
+            'caption': caption,
+            # add other fields as needed
+        }
+        await col.insert_one(file_data)
         return 'suc'
-
-    except ValidationError:
-        return 'err'
-
     except Exception as e:
         print(f"Error saving file: {e}")
         return 'err'
