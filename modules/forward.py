@@ -8,6 +8,7 @@ from .regix import copy_msg, delete_data, FloodWaitTime
 from config import OWNER_ID
 from database.utils import get_search_results, Media
 from database import get_chat
+from bot import app
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -18,7 +19,7 @@ IST = pytz.timezone("Asia/Kolkata")
 MessageCount = 0
 is_running = False
 
-@Client.on_message(filters.command("forward"))
+@app.on_message(filters.command("forward"))
 async def forward(bot, message):
     """
     Forward messages from DB to target chat one by one.
