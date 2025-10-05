@@ -64,4 +64,3 @@ COLLECTION_NAME=forward2025
 ![Demo Screenshot](https://i.ibb.co/JZyLHpn/Screenshot-2025-10-06-02-01-33-607-ir-ilmili-telegraph.jpg)
 
 ---
-### > [Lx 0980](https://github.com/lx0980)
