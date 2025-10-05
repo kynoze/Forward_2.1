@@ -3,7 +3,7 @@ import asyncio
 import pytz
 from datetime import datetime
 from pyrogram import Client, filters
-from pyrogram.errors import FloodWait
+from pyrogram.errors import FloodWait, MessageNotModified, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from .regix import copy_msg, delete_data
 from config import OWNER_ID
@@ -17,24 +17,33 @@ logger.setLevel(logging.INFO)
 IST = pytz.timezone("Asia/Kolkata")
 
 forward_lock = asyncio.Lock()
-STATS_UPDATE_EVERY = 10  # update status message every 10 forwards
-
-# In-memory cancel flags per user/session
 cancel_forwarding = {}
+
+def build_progress_text(message_count, errors, last_time, sleeping_for=None):
+    if sleeping_for:
+        return (
+            f"Total Forwarded: <code>{message_count}</code>\n"
+            f"Total Error: <code>{errors}</code>\n"
+            f"Sleeping for <code>{sleeping_for}</code> seconds"
+        )
+    else:
+        return (
+            f"Total Forwarded: <code>{message_count}</code>\n"
+            f"Total Error: <code>{errors}</code>\n"
+            f"Last Forwarded at {last_time}"
+        )
+
+def build_cancel_kb(user_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
+    ])
 
 @app.on_message(filters.command("forward"))
 async def forward(bot, message):
-    """
-    Forward messages from DB to target chat one by one.
-    Handles FloodWait automatically and updates progress message.
-    Allows cancellation via inline button.
-    """
-
     user_id = message.from_user.id
     if user_id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
 
-    # Acquire the lock to prevent concurrent tasks
     if forward_lock.locked():
         return await message.reply_text("A task is already running.")
 
@@ -45,20 +54,21 @@ async def forward(bot, message):
 
         errors = 0
         message_count = 0
-        stats_count = 0
-
-        cancel_forwarding[user_id] = False  # Reset cancel flag
+        cancel_forwarding[user_id] = False
 
         m = await message.reply_text(
             "Forwarding Started!",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
-            ])
+            reply_markup=build_cancel_kb(user_id)
         )
+
+        last_progress_text = ""
+        last_update_time = 0
+        update_interval = 5  # seconds between forced progress updates
+
         try:
             while await Media.count_documents() != 0:
                 if cancel_forwarding.get(user_id):
-                    await m.edit_text("❌ Forwarding cancelled by user.")
+                    await safe_edit_text(m, "❌ Forwarding cancelled by user.")
                     break
 
                 data = await get_search_results()
@@ -67,29 +77,23 @@ async def forward(bot, message):
 
                 for msg in data:
                     if cancel_forwarding.get(user_id):
-                        await m.edit_text("❌ Forwarding cancelled by user.")
+                        await safe_edit_text(m, "❌ Forwarding cancelled by user.")
                         break
 
                     # Retry logic for FloodWait
                     while True:
-                        try:
-                            success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
-                            if floodwait_seconds:
-                                await m.edit_text(
-                                    f"Total Forwarded: <code>{message_count}</code>\n"
-                                    f"Sleeping for <code>{floodwait_seconds}</code> seconds",
-                                    reply_markup=InlineKeyboardMarkup([
-                                        [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
-                                    ])
-                                )
-                                await asyncio.sleep(floodwait_seconds)
-                            # Then retry the SAME message!
-                                continue
-                            break  # No FloodWait, move to next step
-                        except Exception as e:
-                            logger.exception(e)
-                            errors += 1
-                            break  # Don't retry on other exceptions
+                        success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
+                        if floodwait_seconds:
+                            progress_text = build_progress_text(
+                                message_count, errors,
+                                datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y"),
+                                sleeping_for=floodwait_seconds
+                            )
+                            await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
+                            last_progress_text = progress_text
+                            await asyncio.sleep(floodwait_seconds)
+                            continue
+                        break
 
                     if not success:
                         logger.error(f"Failed to copy message: {msg}")
@@ -104,43 +108,52 @@ async def forward(bot, message):
 
                     message_count += 1
 
-                #     Progress update after each message
+                    # Only update if message text changes, or enough time has passed
                     datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
-                    await m.edit_text(
-                        f"Total Forwarded: <code>{message_count}</code>\n"
-                        f"Total Error: <code>{errors}</code>\n"
-                        f"Last Forwarded at {datetime_ist}",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
-                        ])
-                    )
+                    progress_text = build_progress_text(message_count, errors, datetime_ist)
+                    now = asyncio.get_event_loop().time()
+                    if progress_text != last_progress_text or (now - last_update_time) > update_interval:
+                        await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
+                        last_progress_text = progress_text
+                        last_update_time = now
 
                     await asyncio.sleep(1)
 
             if not cancel_forwarding.get(user_id):
                 datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
-                await m.edit_text(
+                final_text = (
                     f"✅ Successfully Forwarded <code>{message_count}</code> messages\n"
                     f"Total Error: <code>{errors}</code>\n"
                     f"Last Forwarded at {datetime_ist}"
                 )
+                await safe_edit_text(m, final_text)
 
         except Exception as e:
             logger.exception(e)
             await message.reply_text(f"Error: {e}")
 
         finally:
-            cancel_forwarding[user_id] = False  # Clean up
+            cancel_forwarding[user_id] = False
 
-# Inline button handler for cancellation
+async def safe_edit_text(m, text, kb=None, last_text=None):
+    """Edit the message only if text changed, and catch Telegram errors."""
+    try:
+        if last_text is not None and text == last_text:
+            return  # Avoid unnecessary edits
+        await m.edit_text(text, reply_markup=kb)
+    except MessageNotModified:
+        pass  # Don't care, content didn't change
+    except FloodWait as e:
+        logger.warning(f"FloodWait while editing progress message: {e.value}")
+        await asyncio.sleep(e.value)
+    except RPCError as e:
+        logger.error(f"RPCError while editing progress message: {e}")
+
 @app.on_callback_query(filters.regex(r"^cancel_forward_(\d+)$"))
 async def cancel_forwarding_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
-
-    # Only allow OWNER_ID to cancel
     if callback_query.from_user.id not in OWNER_ID or callback_query.from_user.id != user_id:
         await callback_query.answer("You are not allowed to cancel this task.", show_alert=True)
         return
-
     cancel_forwarding[user_id] = True
     await callback_query.answer("Cancelling forwarding...", show_alert=True)
