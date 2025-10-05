@@ -112,11 +112,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
 
             await msg.edit("📦 Starting to fetch messages...")
 
-            async for message in bot.iter_messages(
-                chat_id=chat,
-                offset_id=skip,
-                reverse=True
-            ):
+            async for message in bot.iter_messages(chat, lst_msg_id, skip if skip else 0):
                 if temp.CANCEL:
                     temp.CANCEL = False
                     duration = get_readable_time(time.time() - start_time)
