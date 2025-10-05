@@ -23,9 +23,9 @@ async def copy_msg(msg, bot, message, chat_id, m, MessageCount):
 async def delete_data(data):
     result = await Media.collection.delete_one({'_id': str(data.file_id)})
     if result.deleted_count:
-        print(f"[DB] Deleted {file_id}")
+        print(f"[DB] Deleted {data.file_id}")
         return True
-    print(f"[DB] Not found: {file_id}")
+    print(f"[DB] Not found: {data.file_id}")
     return False
     
 f = """
