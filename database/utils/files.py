@@ -86,15 +86,15 @@ async def save_file(media: Any, col) -> str:
         logger.exception("Duplicate check failed; proceeding to insert for file_id=%s", file_id)
 
     # Prepare document (do NOT store 'file_id'; _id handles it)
-    file_data: Dict[str, Any] = {
+    file = Media(
         'file_id': file_id,
         'file_name': file_name_norm,
         'caption': caption_norm,
         'use': 'forward',
-    }
+    )
     try:
-        await col.insert_one(file_data)
-        logger.info("Inserted file %s into %s", file_id, getattr(col, "name", "<collection>"))
+        await file.commit()
+        #logger.info("Inserted file %s into %s", file_id, getattr(col, "name", "<collection>"))
         return 'suc'
     except DuplicateKeyError:
         logger.warning("DuplicateKeyError while inserting %s", file_id)
