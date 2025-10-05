@@ -55,7 +55,6 @@ async def forward(bot, message):
                 [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
             ])
         )
-
         try:
             while await Media.count_documents() != 0:
                 if cancel_forwarding.get(user_id):
@@ -71,38 +70,50 @@ async def forward(bot, message):
                         await m.edit_text("❌ Forwarding cancelled by user.")
                         break
 
-                    try:
-                        success = await copy_msg(msg, bot, message, chat_id, m, message_count)
-                        deleted = await delete_data(msg) if success else False
-
-                        if not deleted:
-                            logger.error(f"Failed to delete message data for msg: {msg}")
+                    # Retry logic for FloodWait
+                    while True:
+                        try:
+                            success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
+                            if floodwait_seconds:
+                                await m.edit_text(
+                                    f"Total Forwarded: <code>{message_count}</code>\n"
+                                    f"Sleeping for <code>{floodwait_seconds}</code> seconds",
+                                    reply_markup=InlineKeyboardMarkup([
+                                        [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
+                                    ])
+                                )
+                                await asyncio.sleep(floodwait_seconds)
+                            # Then retry the SAME message!
+                                continue
+                            break  # No FloodWait, move to next step
+                        except Exception as e:
+                            logger.exception(e)
                             errors += 1
-                            continue
+                            break  # Don't retry on other exceptions
 
-                        message_count += 1
-                        stats_count += 1
-
-                        if stats_count == STATS_UPDATE_EVERY:
-                            datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
-                            stats_count = 0
-                            await m.edit_text(
-                                f"Total Forwarded: <code>{message_count}</code>\n"
-                                f"Total Error: <code>{errors}</code>\n"
-                                f"Last Forwarded at {datetime_ist}",
-                                reply_markup=InlineKeyboardMarkup([
-                                    [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
-                                ])
-                            )
-
-                    except FloodWait as e:
-                        logger.warning(f"FloodWait: Sleeping for {e.value} seconds")
-                        await asyncio.sleep(e.value)
-                        continue
-                    except Exception as e:
-                        logger.exception(e)
+                    if not success:
+                        logger.error(f"Failed to copy message: {msg}")
                         errors += 1
                         continue
+
+                    deleted = await delete_data(msg)
+                    if not deleted:
+                        logger.error(f"Failed to delete message data for msg: {msg}")
+                        errors += 1
+                        continue
+
+                    message_count += 1
+
+                #     Progress update after each message
+                    datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
+                    await m.edit_text(
+                        f"Total Forwarded: <code>{message_count}</code>\n"
+                        f"Total Error: <code>{errors}</code>\n"
+                        f"Last Forwarded at {datetime_ist}",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
+                        ])
+                    )
 
                     await asyncio.sleep(1)
 
