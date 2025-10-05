@@ -25,7 +25,7 @@ async def forward(bot, message):
     Forward messages from DB to target chat one by one.
     Handles FloodWait automatically and updates progress message.
     """
-    global is_running, MessageCount, FloodWaitTime
+    global is_running, MessageCount
 
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
@@ -64,7 +64,6 @@ async def forward(bot, message):
                         datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
                         await m.edit_text(
                             f"Total Forwarded: <code>{MessageCount}</code>\n"
-                            f"Sleeping for <code>{FloodWaitTime}</code> second\n"
                             f"Total Error: <code>{errors}</code>\n"
                             f"Last Forwarded at {datetime_ist}"
                         )
