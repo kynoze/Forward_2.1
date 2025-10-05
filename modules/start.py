@@ -4,7 +4,7 @@ from bot import app
 from config import OWNER_ID
 from database.utils import Media
 from database import get_chat, add_chat
-from modules.forward import is_running
+from modules.forward import forward_lock
 
 @app.on_message(filters.command("help") & filters.private)
 async def help_command(client: Client, message: Message):
@@ -76,7 +76,7 @@ async def clear_database(bot, message):
 async def status_command(bot, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text("Who the hell are you!!")
-    if is_running:
+    if forward_lock.locked():  # <-- FIXED status check
         status_text = 'Bot is currently forwarding files'
     else:
         status_text = 'Bot is free, You can start new task'
