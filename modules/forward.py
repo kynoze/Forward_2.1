@@ -7,7 +7,7 @@ from pyrogram.errors import FloodWait, MessageNotModified, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from .regix import copy_msg, delete_data
 from config import OWNER_ID
-from database.utils import get_search_results, Media
+from database.utils import Media
 from database import get_chat
 from bot import app
 
@@ -18,6 +18,7 @@ IST = pytz.timezone("Asia/Kolkata")
 forward_lock = asyncio.Lock()
 cancel_forwarding = {}
 
+# Progress helpers
 def build_progress_text(message_count, errors, last_time, sleeping_for=None):
     if sleeping_for:
         return (
@@ -25,12 +26,11 @@ def build_progress_text(message_count, errors, last_time, sleeping_for=None):
             f"Total Error: <code>{errors}</code>\n"
             f"Sleeping for <code>{sleeping_for}</code> seconds"
         )
-    else:
-        return (
-            f"Total Forwarded: <code>{message_count}</code>\n"
-            f"Total Error: <code>{errors}</code>\n"
-            f"Last Forwarded at {last_time}"
-        )
+    return (
+        f"Total Forwarded: <code>{message_count}</code>\n"
+        f"Total Error: <code>{errors}</code>\n"
+        f"Last Forwarded at {last_time}"
+    )
 
 def build_cancel_kb(user_id):
     return InlineKeyboardMarkup([
@@ -38,18 +38,24 @@ def build_cancel_kb(user_id):
     ])
 
 async def safe_edit_text(m, text, kb=None, last_text=None):
-    """Edit only if content changed and handle Telegram limits/errors gracefully."""
     try:
         if last_text is not None and text == last_text:
-            return  # Avoid unnecessary edits
+            return
         await m.edit_text(text, reply_markup=kb)
     except MessageNotModified:
-        pass  # Telegram: message is not modified
+        pass
     except FloodWait as e:
         logger.warning(f"FloodWait while editing progress message: {e.value}")
         await asyncio.sleep(e.value)
     except RPCError as e:
         logger.error(f"RPCError while editing progress message: {e}")
+
+# Fetch messages in batches
+async def get_search_results_batch(skip=0, batch_size=500):
+    cursor = Media.find({'use': 'forward'})
+    cursor.sort('$natural', 1)
+    cursor.skip(skip).limit(batch_size)
+    return await cursor.to_list(length=batch_size)
 
 @app.on_message(filters.command("forward"))
 async def forward(bot, message):
@@ -76,7 +82,16 @@ async def forward(bot, message):
 
         last_progress_text = ""
         last_update_time = 0
-        update_interval = 5  # seconds between forced progress updates
+        update_interval = 30  # seconds
+        messages_since_last_edit = 0
+        batch_size = 500
+        skip = 0
+
+        semaphore = asyncio.Semaphore(5)  # Parallel forwarding limit
+
+        async def limited_copy(msg):
+            async with semaphore:
+                return await copy_msg(msg, bot, chat_id)
 
         try:
             while True:
@@ -84,20 +99,20 @@ async def forward(bot, message):
                     await safe_edit_text(m, "❌ Forwarding cancelled by user.")
                     break
 
-                data = await get_search_results()
-                if not data:
+                batch = await get_search_results_batch(skip=skip, batch_size=batch_size)
+                if not batch:
                     break
 
-                for msg in data:
+                for msg in batch:
                     if cancel_forwarding.get(user_id):
                         await safe_edit_text(m, "❌ Forwarding cancelled by user.")
                         break
 
-                    # Limit FloodWait retries to 5
                     floodwait_attempts = 0
                     max_floodwait_attempts = 5
+
                     while floodwait_attempts < max_floodwait_attempts:
-                        success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
+                        success, floodwait_seconds = await limited_copy(msg)
                         if floodwait_seconds:
                             progress_text = build_progress_text(
                                 message_count, errors,
@@ -107,27 +122,16 @@ async def forward(bot, message):
                             await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
                             last_progress_text = progress_text
 
-                            slept = 0
-                            interval = 1  # seconds
-                            while slept < floodwait_seconds:
-                                if cancel_forwarding.get(user_id):
-                                    await safe_edit_text(m, "❌ Forwarding cancelled by user.")
-                                    break
-                                await asyncio.sleep(min(interval, floodwait_seconds - slept))
-                                slept += interval
-                            if cancel_forwarding.get(user_id):
-                                break
+                            await asyncio.sleep(min(floodwait_seconds, 60))  # Max 60s per retry
                             floodwait_attempts += 1
                             continue
                         break
                     else:
-                        # Exceeded max floodwait attempts
                         logger.error(f"FloodWait loop exceeded for message: {msg}")
                         errors += 1
                         continue
 
                     if not success:
-                        logger.error(f"Failed to copy message: {msg}")
                         errors += 1
                         continue
 
@@ -135,27 +139,29 @@ async def forward(bot, message):
                     if not deleted:
                         logger.error(f"Failed to delete message data for msg: {msg}")
                         errors += 1
-                        break  # Break the message loop if deletion fails
+                        continue
 
                     message_count += 1
+                    messages_since_last_edit += 1
 
-                    # Only update if message text changes, or enough time has passed
-                    datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
-                    progress_text = build_progress_text(message_count, errors, datetime_ist)
                     now = asyncio.get_event_loop().time()
-                    if progress_text != last_progress_text or (now - last_update_time) > update_interval:
+                    progress_text = build_progress_text(
+                        message_count, errors,
+                        datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
+                    )
+                    if messages_since_last_edit >= 100 or (now - last_update_time) > update_interval:
                         await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
                         last_progress_text = progress_text
                         last_update_time = now
+                        messages_since_last_edit = 0
 
-                    await asyncio.sleep(1)
+                skip += batch_size
 
             if not cancel_forwarding.get(user_id):
-                datetime_ist = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
                 final_text = (
                     f"✅ Successfully Forwarded <code>{message_count}</code> messages\n"
                     f"Total Error: <code>{errors}</code>\n"
-                    f"Last Forwarded at {datetime_ist}"
+                    f"Last Forwarded at {datetime.now(IST).strftime('%I:%M:%S %p - %d %B %Y')}"
                 )
                 await safe_edit_text(m, final_text)
 
