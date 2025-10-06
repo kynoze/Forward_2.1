@@ -1,6 +1,6 @@
 #  Forward 2.1
 
-A simple Telegram bot to **index messages/files from a source channel**, store them in a **database**, and **forward them to a target channel**.
+A simple Telegram bot to **index files from a source channel**, store them in a **database**, and **forward them to a target channel**.
 
 ---
 ## ⚠️ **Important Warning**
