@@ -64,12 +64,13 @@ async def send_for_index(bot: Client, message: Any):
     except Exception:
         return await message.reply("❌ Invalid number!")
 
+    # ✅ Confirmation buttons: Start / Cancel
     buttons = [
-        [InlineKeyboardButton("📊 Progress", callback_data=f'progress')],
-        [InlineKeyboardButton("🚫 Cancel", callback_data=f'index#cancel#{chat.id}#{last_msg_id}#{skip}')]
+        [InlineKeyboardButton("✅ START", callback_data=f'index#yes#{chat.id}#{last_msg_id}#{skip}')],
+        [InlineKeyboardButton("❌ CANCEL", callback_data=f'index#cancel#{chat.id}#{last_msg_id}#{skip}')]
     ]
 
-    start_msg = await message.reply(
+    await message.reply(
         f'<b>📚 Indexing Confirmation</b>\n\n'
         f'📌 Channel: {chat.title}\n'
         f'📝 Last message id: <code>{last_msg_id}</code>\n'
@@ -78,9 +79,32 @@ async def send_for_index(bot: Client, message: Any):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-    # Start indexing
+
+@app.on_callback_query(filters.regex(r'^index#yes'))
+async def start_indexing(bot: Client, query):
+    _, _, chat_id, last_msg_id, skip = query.data.split("#")
+    user_id = query.from_user.id
+    skip = int(skip)
+    last_msg_id = int(last_msg_id)
+    chat_id = int(chat_id) if chat_id.isdigit() else chat_id
+
+    try:
+        chat = await bot.get_chat(chat_id)
+    except Exception as e:
+        return await query.message.reply(f'❌ Error: {e}')
+
+    # Initial progress button
+    progress_buttons = [
+        [InlineKeyboardButton("📊 Progress", callback_data=f'progress')],
+        [InlineKeyboardButton("🚫 Cancel", callback_data=f'index#cancel#{chat_id}#{last_msg_id}#{skip}')]
+    ]
+    progress_msg = await query.message.edit_text(
+        "<b>📦 Indexing Started!</b>\n\nCollecting files from channel...",
+        reply_markup=InlineKeyboardMarkup(progress_buttons)
+    )
+
     primary_col = db[COLLECTION_NAME]
-    progress_data[message.from_user.id] = {
+    progress_data[user_id] = {
         'processed': 0,
         'saved': 0,
         'duplicates': 0,
@@ -89,10 +113,10 @@ async def send_for_index(bot: Client, message: Any):
         'no_media': 0,
         'unsupported': 0,
         'sleeping': None,
-        'msg_obj': start_msg
+        'msg_obj': progress_msg
     }
 
-    await index_files_to_db(int(last_msg_id), chat, message.from_user.id, bot, int(skip), primary_col)
+    await index_files_to_db(last_msg_id, chat, user_id, bot, skip, primary_col)
 
 
 @app.on_callback_query(filters.regex(r'^progress$'))
