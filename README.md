@@ -3,7 +3,7 @@
 A simple Telegram bot to **index files from a source channel**, store them in a **database**, and **forward them to a target channel**.
 
 ---
-## ⚠️ **Important Warning**
+## ⚠️ **Important Note**
 
 > ⚠️ **This bot indexes slowly!**  
 > It saves approximately **5 files per second** into the database.  
