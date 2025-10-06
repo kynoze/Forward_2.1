@@ -7,36 +7,17 @@ from pyrogram.errors import FloodWait, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import OWNER_ID, COLLECTION_NAME
-from database.utils import temp, get_readable_time  # save_file moved to files.py; we'll import files.save_file below
+from database.utils import temp, get_readable_time
 from database import db
 from bot import app
-from database.utils import save_file # import the save_file implementation from files.py
+from database.utils import save_file
 
 logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
 temp.CANCEL = False
 
 SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT)
-
-
-@app.on_callback_query(filters.regex(r'^index'))
-async def index_files(bot: Client, query):
-    _, ident, chat, lst_msg_id, skip = query.data.split("#")
-    msg = query.message
-
-    if ident == 'yes':
-        await msg.edit("<b>📦 Indexing Started!</b>\n\nCollecting files from channel...")
-        try:
-            chat = int(chat)
-        except Exception:
-            pass
-
-        # primary collection (Motor async collection)
-        primary_col = db[COLLECTION_NAME]
-        await index_files_to_db(int(lst_msg_id), chat, msg, bot, int(skip), primary_col)
-    elif ident == 'cancel':
-        temp.CANCEL = True
-        await msg.edit("🛑 Cancelling indexing process...")
+progress_data = {}  # user_id -> dict storing current stats
 
 
 @app.on_message(filters.command('index') & filters.private)
@@ -84,11 +65,11 @@ async def send_for_index(bot: Client, message: Any):
         return await message.reply("❌ Invalid number!")
 
     buttons = [
-        [InlineKeyboardButton("✅ START", callback_data=f'index#yes#{chat.id}#{last_msg_id}#{skip}')],
-        [InlineKeyboardButton("❌ CANCEL", callback_data=f'index#cancel#{chat.id}#{last_msg_id}#{skip}')]
+        [InlineKeyboardButton("📊 Progress", callback_data=f'progress')],
+        [InlineKeyboardButton("🚫 Cancel", callback_data=f'index#cancel#{chat.id}#{last_msg_id}#{skip}')]
     ]
 
-    await message.reply(
+    start_msg = await message.reply(
         f'<b>📚 Indexing Confirmation</b>\n\n'
         f'📌 Channel: {chat.title}\n'
         f'📝 Last message id: <code>{last_msg_id}</code>\n'
@@ -97,162 +78,123 @@ async def send_for_index(bot: Client, message: Any):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-
-async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, skip: int, primary_col) -> None:
-    """
-    Indexing loop using a single Mongo collection (primary_col).
-    - Uses iter_messages(offset_id=lst_msg_id, reverse=True, limit=total_to_index)
-    - Sleeps & retries on FloodWait (no recursion)
-    - Throttles progress edits
-    - Passes primary_col to save_file(media, col)
-    """
-    start_time = time.time()
-    stats = {
+    # Start indexing
+    primary_col = db[COLLECTION_NAME]
+    progress_data[message.from_user.id] = {
         'processed': 0,
-        'total_files': 0,
-        'duplicate': 0,
+        'saved': 0,
+        'duplicates': 0,
         'errors': 0,
         'deleted': 0,
         'no_media': 0,
-        'unsupported': 0
+        'unsupported': 0,
+        'sleeping': None,
+        'msg_obj': start_msg
     }
 
-    try:
-        total_to_index = max(0, int(lst_msg_id) - int(skip))
-    except Exception:
-        await msg.edit("❌ Invalid lst_msg_id or skip.")
+    await index_files_to_db(int(last_msg_id), chat, message.from_user.id, bot, int(skip), primary_col)
+
+
+@app.on_callback_query(filters.regex(r'^progress$'))
+async def progress_callback(client, query):
+    user_id = query.from_user.id
+    data = progress_data.get(user_id)
+    if not data:
+        await query.answer("No progress yet", show_alert=True)
         return
 
-    if total_to_index <= 0:
-        await msg.edit("⚠️ No messages to index after skipping!")
-        return
+    text = (
+        f"📊 <b>Current Indexing Progress</b>\n\n"
+        f"🔢 Processed: {data['processed']}\n"
+        f"✅ Saved: {data['saved']}\n"
+        f"♻️ Duplicates: {data['duplicates']}\n"
+        f"🗑️ Deleted: {data['deleted']}\n"
+        f"🚫 No Media: {data['no_media']}\n"
+        f"❌ Unsupported: {data['unsupported']}\n"
+        f"⚠️ Errors: {data['errors']}"
+    )
+    if data.get("sleeping"):
+        text += f"\n⏳ Sleeping for {data['sleeping']}s..."
+    await query.answer(text, show_alert=True)
 
-    await msg.edit("📦 Starting to fetch messages...")
 
-    # throttle config
-    progress_interval_secs = 12
-    progress_update_every = 100
-    last_edit_time = 0
+@app.on_callback_query(filters.regex(r'^index#cancel'))
+async def cancel_indexing(client, query):
+    user_id = query.from_user.id
+    temp.CANCEL = True
+    data = progress_data.get(user_id)
+    if data:
+        try:
+            await data['msg_obj'].edit_reply_markup(None)
+        except Exception:
+            pass
+        stats = data.copy()
+        del stats['msg_obj']
+        text = "🛑 <b>Indexing Cancelled!</b>\n\n" + "\n".join([f"{k}: {v}" for k, v in stats.items()])
+        await query.message.reply(text)
+    await query.answer("Cancelling indexing...", show_alert=True)
+
+
+async def index_files_to_db(lst_msg_id: int, chat: Any, user_id: int, bot: Client, skip: int, primary_col) -> None:
+    start_time = time.time()
+    data = progress_data[user_id]
 
     async with lock:
-        # loop so we can sleep and retry on FloodWait without recursion
-        while True:
-            try:
-                async for message in bot.iter_messages(chat, lst_msg_id, skip if skip else 0):
-                    # cancellation
-                    if temp.CANCEL:
-                        temp.CANCEL = False
-                        duration = get_readable_time(time.time() - start_time)
-                        await msg.edit(
-                            f"🛑 <b>Indexing Cancelled!</b>\n\n"
-                            f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                            f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                            f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                            f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                            f"🚫 No Media: <code>{stats['no_media']}</code>\n"
-                            f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                            f"⚠️ Errors: <code>{stats['errors']}</code>\n"
-                            f"⏳ Duration: <code>{duration}</code>"
-                        )
-                        return
-
-                    # defensive checks
-                    if not message:
-                        stats['deleted'] += 1
-                        stats['processed'] += 1
-                        continue
-
-                    stats['processed'] += 1
-
-                    # ensure we skip lower ids
-                    msg_id = getattr(message, "message_id", None) or getattr(message, "id", None)
-                    if msg_id is not None and msg_id <= skip:
-                        continue
-
-                    # media checks
-                    if not message.media:
-                        stats['no_media'] += 1
-                    elif message.media not in SUPPORTED_TYPES:
-                        stats['unsupported'] += 1
-                    else:
-                        media = getattr(message, message.media.value, None)
-                        mime = getattr(media, "mime_type", "") if media else ""
-                        if not media or not mime.startswith("video"):
-                            stats['unsupported'] += 1
-                        else:
-                            media.caption = message.caption
-                            try:
-                                result = await save_file(media, primary_col)
-                                if result == 'suc':
-                                    stats['total_files'] += 1
-                                elif result == 'dup':
-                                    stats['duplicate'] += 1
-                                else:
-                                    stats['errors'] += 1
-                            except FloodWait as e:
-                                wait = int(getattr(e, "value", 5)) + 2
-                                await msg.edit(f"⏳ FloodWait during save_file. Sleeping {wait}s...")
-                                await asyncio.sleep(wait)
-                                # raise so outer except(FloodWait) handles consistent sleeping
-                                raise e
-                            except Exception:
-                                stats['errors'] += 1
-                                logger.exception("Error saving media")
-
-                    # progress update (time + count based)
-                    now = time.time()
-                    if (stats['processed'] % progress_update_every == 0) or (now - last_edit_time > progress_interval_secs):
-                        last_edit_time = now
-                        progress_msg = (
-                            f"⚙️ <b>Indexing Progress</b>\n\n"
-                            f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                            f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                            f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                            f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                            f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
-                            f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                            f"⚠️ Errors: <code>{stats['errors']}</code>"
-                        )
-                        try:
-                            await msg.edit(
-                                progress_msg,
-                                reply_markup=InlineKeyboardMarkup([[
-                                    InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
-                                ]])
-                            )
-                        except RPCError:
-                            pass
-
-                # completed iteration without FloodWait
-                duration = get_readable_time(time.time() - start_time)
-                await msg.edit(
-                    f"🎉 <b>Indexing Completed!</b>\n\n"
-                    f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                    f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                    f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                    f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                    f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
-                    f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                    f"⚠️ Errors: <code>{stats['errors']}</code>\n"
-                    f"⏳ Duration: <code>{duration}</code>"
-                )
-                return
-
-            except FloodWait as e:
-                wait = int(getattr(e, "value", 5)) + 2
-                logger.warning("FloodWait triggered while iterating: sleeping %ds", wait)
+        async for message in bot.iter_messages(chat, lst_msg_id, skip if skip else 0):
+            if temp.CANCEL:
+                temp.CANCEL = False
+                stats = data.copy()
+                del stats['msg_obj']
+                text = "🛑 <b>Indexing Cancelled!</b>\n\n" + "\n".join([f"{k}: {v}" for k, v in stats.items()])
                 try:
-                    await msg.edit(f"⏳ FloodWait triggered. Sleeping for {wait} seconds...")
+                    await data['msg_obj'].edit_reply_markup(None)
+                    await bot.send_message(chat.id, text)
                 except Exception:
                     pass
-                await asyncio.sleep(wait)
-                # loop and retry (note: this will re-run iter_messages from the same offset)
+                return
+
+            data['processed'] += 1
+
+            msg_id = getattr(message, "message_id", None) or getattr(message, "id", None)
+            if msg_id is not None and msg_id <= skip:
                 continue
 
-            except Exception as e:
-                logger.exception("Indexing failed: %s", e)
-                try:
-                    await msg.reply(f'❌ Indexing failed: {str(e)}')
-                except Exception:
-                    pass
-                return
+            if not message.media:
+                data['no_media'] += 1
+            elif message.media not in SUPPORTED_TYPES:
+                data['unsupported'] += 1
+            else:
+                media = getattr(message, message.media.value, None)
+                mime = getattr(media, "mime_type", "") if media else ""
+                if not media or not mime.startswith("video"):
+                    data['unsupported'] += 1
+                else:
+                    media.caption = message.caption
+                    try:
+                        result = await save_file(media, primary_col)
+                        if result == 'suc':
+                            data['saved'] += 1
+                        elif result == 'dup':
+                            data['duplicates'] += 1
+                        else:
+                            data['errors'] += 1
+                    except FloodWait as e:
+                        wait = int(getattr(e, "value", 5))
+                        data['sleeping'] = wait
+                        await asyncio.sleep(wait)
+                        data['sleeping'] = None
+                    except Exception:
+                        data['errors'] += 1
+                        logger.exception("Error saving media")
+
+        # Completed
+        duration = get_readable_time(time.time() - start_time)
+        stats = data.copy()
+        del stats['msg_obj']
+        text = "🎉 <b>Indexing Completed!</b>\n\n" + "\n".join([f"{k}: {v}" for k, v in stats.items()])
+        try:
+            await data['msg_obj'].edit_reply_markup(None)
+            await bot.send_message(chat.id, text)
+        except Exception:
+            pass
+        progress_data.pop(user_id, None)
