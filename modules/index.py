@@ -130,8 +130,8 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
     await msg.edit("📦 Starting to fetch messages...")
 
     # throttle config
-    progress_interval_secs = 12
-    progress_update_every = 100
+    progress_interval_secs = 120
+    progress_update_every = 500
     last_edit_time = 0
 
     async with lock:
