@@ -43,10 +43,10 @@ async def index_files(bot: Client, query):
 @app.on_callback_query(filters.regex(r"^check_progress_(\d+)$"))
 async def check_progress_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
-    if callback_query.from_user.id != user_id or user_id not in OWNER_ID:
+    if user_id not in OWNER_ID:
         return await callback_query.answer("Not allowed!", show_alert=True)
 
-    get_status= stats.get(user_id)
+    get_status= stats.get()
     if not get_status:
         return await callback_query.answer("No active indexing task.", show_alert=True)
     text = (
@@ -131,7 +131,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
     """
     start_time = time.time()
     user_id = msg.from_user.id
-    stats[user_id]= {
+    stats = {
         'processed': 0,
         'total_files': 0,
         'duplicate': 0,
