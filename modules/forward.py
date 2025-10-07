@@ -59,35 +59,25 @@ async def forward(bot, message):
                 data = await get_search_results()
                 if not data:
                     break
-
                 for msg in data:
                     if cancel_forwarding.get(user_id):
-                        await m.edit_text("❌ Forwarding cancelled by user.")
+                        await m.edit_text(f"❌ Forwarding cancelled by user.")
                         break
-
+                    c_text = f"Total Forwarded: <code>{progress_status[user_id]['forwarded']}</code>"  
                     floodwait_attempts = 0
                     max_floodwait_attempts = 5
                     while floodwait_attempts < max_floodwait_attempts:
-                        success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
-                        if floodwait_seconds:
-                            progress_text = build_progress_text(
-                                message_count, errors,
-                                datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y"),
-                                sleeping_for=floodwait_seconds
-                            )
-                            await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
-                            last_progress_text = progress_text
-
+                        success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
                             slept = 0
                             interval = 1  # seconds
                             while slept < floodwait_seconds:
                                 if cancel_forwarding.get(user_id):
-                                    await safe_edit_text(m, "❌ Forwarding cancelled by user.")
+                                    await m.edit_text(f"❌ Forwarding cancelled by user.\n{c_text}")
                                     break
                                 await asyncio.sleep(min(interval, floodwait_seconds - slept))
                                 slept += interval
                             if cancel_forwarding.get(user_id):
-                                await m.edit_text("❌ Forwarding cancelled by user.")
+                                await m.edit_text(f"❌ Forwarding cancelled by user.\n{c_text}")
                                 break
                             floodwait_attempts += 1
                             continue
@@ -111,8 +101,6 @@ async def forward(bot, message):
                     progress_status[user_id]["last_time"] = datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y")
 
                     await asyncio.sleep(1)
-
-                await asyncio.sleep(5)  # auto-refresh delay between batches
 
             if not cancel_forwarding.get(user_id):
                 await m.edit_text(
