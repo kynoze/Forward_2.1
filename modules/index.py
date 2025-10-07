@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
 temp.CANCEL = False
 
-SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT)
+SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT, enums.MessageMediaType.MUSIC)
 
 
 @app.on_callback_query(filters.regex(r'^index'))
