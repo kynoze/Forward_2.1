@@ -19,6 +19,8 @@ forward_lock = asyncio.Lock()
 cancel_forwarding = {}
 progress_status = {}
 
+
+# 🔘 Build inline keyboard for control buttons
 def build_control_kb(user_id):
     return InlineKeyboardMarkup([
         [
@@ -26,6 +28,7 @@ def build_control_kb(user_id):
             InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")
         ]
     ])
+
 
 @app.on_message(filters.command("forward"))
 async def forward(bot, message):
@@ -59,33 +62,55 @@ async def forward(bot, message):
                 data = await get_search_results()
                 if not data:
                     break
-                c_text = f"Total Forwarded: <code>{progress_status[user_id]['forwarded']}</code>"  
+
                 for msg in data:
                     if cancel_forwarding.get(user_id):
-                        await m.edit_text(f"❌ Forwarding cancelled by user.\n{c_text}")
+                        await m.edit_text("❌ Forwarding cancelled by user.")
                         break
+
                     floodwait_attempts = 0
                     max_floodwait_attempts = 5
+
                     while floodwait_attempts < max_floodwait_attempts:
-                        success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
-                            slept = 0
-                            interval = 1  # seconds
-                            while slept < floodwait_seconds:
-                                if cancel_forwarding.get(user_id):
-                                    await m.edit_text(f"❌ Forwarding cancelled by user.\n{c_text}")
-                                    break
-                                await asyncio.sleep(min(interval, floodwait_seconds - slept))
-                                slept += interval
-                            if cancel_forwarding.get(user_id):
-                                await m.edit_text(f"❌ Forwarding cancelled by user.\n{c_text}")
-                                break
+                        try:
+                            success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
+
+                            # If success is False and floodwait_seconds > 0, sleep for that duration
+                            if not success and floodwait_seconds:
+                                slept = 0
+                                interval = 1
+                                while slept < floodwait_seconds:
+                                    if cancel_forwarding.get(user_id):
+                                        await m.edit_text("❌ Forwarding cancelled by user.")
+                                        break
+                                    await asyncio.sleep(min(interval, floodwait_seconds - slept))
+                                    slept += interval
+                                floodwait_attempts += 1
+                                continue
+
+                        except FloodWait as e:
+                            logger.warning(f"FloodWait for {e.value} seconds.")
+                            await asyncio.sleep(e.value)
                             floodwait_attempts += 1
                             continue
+
+                        except RPCError as e:
+                            logger.error(f"RPCError: {e}")
+                            progress_status[user_id]["errors"] += 1
+                            break
+
+                        except Exception as e:
+                            logger.exception(e)
+                            progress_status[user_id]["errors"] += 1
+                            break
+
+                        # Break out of retry loop if success
                         break
+
                     else:
                         # Exceeded max floodwait attempts
                         logger.error(f"FloodWait loop exceeded for message: {msg}")
-                        errors += 1
+                        progress_status[user_id]["errors"] += 1
                         continue
 
                     if not success:
