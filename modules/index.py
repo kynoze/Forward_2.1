@@ -7,15 +7,15 @@ from pyrogram.errors import FloodWait, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import OWNER_ID, COLLECTION_NAME
-from database.utils import temp, get_readable_time  # save_file moved to files.py; we'll import files.save_file below
+from database.utils import temp, get_readable_time
 from database import db
 from bot import app
-from database.utils import save_file  # import the save_file implementation from files.py
+from database.utils import save_file
 
 logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
 temp.CANCEL = False
-stats = {}  # global dict to track progress per user
+stats = {}  # per-user progress tracking
 
 SUPPORTED_TYPES = (
     enums.MessageMediaType.VIDEO,
@@ -24,8 +24,10 @@ SUPPORTED_TYPES = (
 )
 
 
+# -------------------- CALLBACK: INDEX START / CANCEL --------------------
 @app.on_callback_query(filters.regex(r'^index'))
 async def index_files(bot: Client, query):
+    # validate callback data
     parts = query.data.split("#")
     if len(parts) < 5:
         return await query.answer("⚠️ Invalid callback data!", show_alert=True)
@@ -41,19 +43,22 @@ async def index_files(bot: Client, query):
             pass
 
         primary_col = db[COLLECTION_NAME]
-        await index_files_to_db(int(lst_msg_id), chat, msg, bot, int(skip), primary_col)
+        # Pass the user who clicked START (query.from_user.id)
+        await index_files_to_db(int(lst_msg_id), chat, msg, bot, int(skip), primary_col, query.from_user.id)
 
     elif ident == 'cancel':
         temp.CANCEL = True
         await msg.edit("🛑 Cancelling indexing process...")
 
+
+# -------------------- CALLBACK: STATUS --------------------
 @app.on_callback_query(filters.regex(r"^index_progress_(\d+)$"))
-async def index_progress_callback(client, callback_query):
-    user_id = int(callback_query.matches[0].group(1))
+async def index_progress_callback(client, query):
+    user_id = int(query.matches[0].group(1))
     get_status = stats.get(user_id)
-    
+
     if not get_status:
-        return await callback_query.answer("No active indexing task.", show_alert=True)
+        return await query.answer("No active indexing task.", show_alert=True)
 
     text = (
         f"⚙️ Indexing Progress\n\n"
@@ -62,9 +67,11 @@ async def index_progress_callback(client, callback_query):
         f"♻️ Duplicates: {get_status['duplicate']}"
     )
 
-    await callback_query.answer(text, show_alert=True)
+    # anyone can press status button
+    await query.answer(text, show_alert=True)
 
 
+# -------------------- COMMAND: /INDEX --------------------
 @app.on_message(filters.command('index') & filters.private)
 async def send_for_index(bot: Client, message: Any):
     if message.from_user.id not in OWNER_ID:
@@ -77,7 +84,7 @@ async def send_for_index(bot: Client, message: Any):
     user_msg = await bot.listen(chat_id=message.chat.id, user_id=message.from_user.id)
     await prompt.delete()
 
-    # support either a t.me link or a forwarded channel message
+    # Support forwarded message or t.me link
     if getattr(user_msg, "text", None) and user_msg.text.startswith("https://t.me"):
         try:
             msg_link = user_msg.text.split("/")
@@ -100,6 +107,7 @@ async def send_for_index(bot: Client, message: Any):
     if chat.type != enums.ChatType.CHANNEL:
         return await message.reply("❌ I can only index channels!")
 
+    # Ask for skip number
     s = await message.reply("✏️ Enter number of messages to skip from start:")
     skip_msg = await bot.listen(chat_id=message.chat.id, user_id=message.from_user.id)
     await s.delete()
@@ -124,14 +132,15 @@ async def send_for_index(bot: Client, message: Any):
     )
 
 
-async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, skip: int, primary_col) -> None:
+# -------------------- INDEXING FUNCTION --------------------
+async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, skip: int, primary_col, user_id: int) -> None:
     """
     Indexing loop using a single Mongo collection (primary_col).
+    Progress is tracked per user.
     """
     start_time = time.time()
-    user_id = msg.from_user.id
 
-    # initialize per-user progress tracking
+    # initialize stats for this user
     stats[user_id] = {
         'processed': 0,
         'total_files': 0,
@@ -142,12 +151,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
         'unsupported': 0
     }
 
-    try:
-        total_to_index = max(0, int(lst_msg_id) - int(skip))
-    except Exception:
-        await msg.edit("❌ Invalid lst_msg_id or skip.")
-        return
-
+    total_to_index = max(0, int(lst_msg_id) - int(skip))
     if total_to_index <= 0:
         await msg.edit("⚠️ No messages to index after skipping!")
         return
