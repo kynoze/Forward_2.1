@@ -60,10 +60,6 @@ async def check_progress_callback(client, callback_query):
         f"🔢 Processed: <code>{get_status['processed']}</code>\n"
         f"✅ Saved: <code>{get_status['total_files']}</code>\n"
         f"♻️ Duplicates: <code>{get_status['duplicate']}</code>\n"
-        f"🗑️ Deleted: <code>{get_status['deleted']}</code>\n"
-        f"🚫 Skipped: <code>{get_status['no_media']}</code>\n"
-        f"❌ Unsupported: <code>{get_status['unsupported']}</code>\n"
-        f"⚠️ Errors: <code>{get_status['errors']}</code>"
     )
 
     await callback_query.answer(text, show_alert=True)
