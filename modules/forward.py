@@ -87,6 +87,7 @@ async def forward(bot, message):
                                     await asyncio.sleep(min(interval, floodwait_seconds - slept))
                                     slept += interval
                                 floodwait_attempts += 1
+                                progress_data[user_id]["sleeping"] = None
                                 continue
 
                         except FloodWait as e:
@@ -166,11 +167,13 @@ async def check_progress_callback(client, callback_query):
     status = progress_status.get(user_id)
     if not status:
         return await callback_query.answer("No active forwarding task.", show_alert=True)
-
-    text = (
-        f"📊 Forwarding Progress:\n\n"
-        f"✅ Forwarded: {status['forwarded']}\n"
-        f"⚠️ Errors: {status['errors']}\n"
-        f"🕓 Last at: {status['last_time'] or 'N/A'}"
-    )
+    if status.get("sleeping"):
+        text += f"⏳ Sleeping for {data['sleeping']}s due to FloodWait"
+    else:
+        text = (
+            f"📊 Forwarding Progress:\n\n"
+            f"✅ Forwarded: {status['forwarded']}\n"
+            f"⚠️ Errors: {status['errors']}\n"
+            f"🕓 Last at: {status['last_time'] or 'N/A'}"
+        )
     await callback_query.answer(text, show_alert=True)
