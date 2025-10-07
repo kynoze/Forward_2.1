@@ -15,6 +15,7 @@ from database.utils import save_file # import the save_file implementation from 
 logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
 temp.CANCEL = False
+stats = {}
 
 SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT, enums.MessageMediaType.MUSIC)
 
@@ -39,6 +40,28 @@ async def index_files(bot: Client, query):
         await msg.edit("🛑 Cancelling indexing process...")
 
 
+@app.on_callback_query(filters.regex(r"^check_progress_(\d+)$"))
+async def check_progress_callback(client, callback_query):
+    user_id = int(callback_query.matches[0].group(1))
+    if callback_query.from_user.id != user_id or user_id not in OWNER_ID:
+        return await callback_query.answer("Not allowed!", show_alert=True)
+
+    stats = stats.get(user_id)
+    if not status:
+        return await callback_query.answer("No active forwarding task.", show_alert=True)
+    text = (
+        f"⚙️ <b>Indexing Progress</b>\n\n"
+        f"🔢 Processed: <code>{stats['processed']}</code>\n"
+        f"✅ Saved: <code>{stats['total_files']}</code>\n"
+        f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
+        f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
+        f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
+        f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
+        f"⚠️ Errors: <code>{stats['errors']}</code>"
+    )
+    await callback_query.answer(text, show_alert=True)
+    
+    
 @app.on_message(filters.command('index') & filters.private)
 async def send_for_index(bot: Client, message: Any):
     if message.from_user.id not in OWNER_ID:
@@ -107,7 +130,8 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
     - Passes primary_col to save_file(media, col)
     """
     start_time = time.time()
-    stats = {
+    user_id = msg.from_user.id
+    stats[userid]= {
         'processed': 0,
         'total_files': 0,
         'duplicate': 0,
@@ -127,12 +151,18 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
         await msg.edit("⚠️ No messages to index after skipping!")
         return
 
-    await msg.edit("📦 Starting to fetch messages...")
-
-    # throttle config
-    progress_interval_secs = 120
-    progress_update_every = 500
-    last_edit_time = 0
+    
+    progress_msg = "📦 Starting to index media..."
+    try:
+       await msg.edit(
+            progress_msg,
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}"),
+                InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
+            ]])
+        )
+    except RPCError:
+        pass
 
     async with lock:
         # loop so we can sleep and retry on FloodWait without recursion
@@ -198,31 +228,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
                             except Exception:
                                 stats['errors'] += 1
                                 logger.exception("Error saving media")
-
-                    # progress update (time + count based)
-                    now = time.time()
-                    if (stats['processed'] % progress_update_every == 0) or (now - last_edit_time > progress_interval_secs):
-                        last_edit_time = now
-                        progress_msg = (
-                            f"⚙️ <b>Indexing Progress</b>\n\n"
-                            f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                            f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                            f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                            f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                            f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
-                            f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                            f"⚠️ Errors: <code>{stats['errors']}</code>"
-                        )
-                        try:
-                            await msg.edit(
-                                progress_msg,
-                                reply_markup=InlineKeyboardMarkup([[
-                                    InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
-                                ]])
-                            )
-                        except RPCError:
-                            pass
-
+                                
                 # completed iteration without FloodWait
                 duration = get_readable_time(time.time() - start_time)
                 await msg.edit(
@@ -256,3 +262,4 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
                 except Exception:
                     pass
                 return
+    
