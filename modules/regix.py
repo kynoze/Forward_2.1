@@ -34,7 +34,7 @@ async def delete_data(data):
         'use': 'forward'
     })
     if result.deleted_count:
-        logger.info(f"[DB] Deleted {data.file_id}")
+        logger.info(f"[DB] Deleted {data.caption}")
         return True
-    logger.info(f"[DB] Not found: {data.file_id}")
+    logger.info(f"[DB] Not found: {data.caption}")
     return False
