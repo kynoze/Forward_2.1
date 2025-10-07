@@ -65,10 +65,37 @@ async def forward(bot, message):
                         await m.edit_text("❌ Forwarding cancelled by user.")
                         break
 
-                    # Copy message safely
-                    success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
-                    if floodwait_seconds:
-                        await asyncio.sleep(floodwait_seconds)
+                    floodwait_attempts = 0
+                    max_floodwait_attempts = 5
+                    while floodwait_attempts < max_floodwait_attempts:
+                        success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
+                        if floodwait_seconds:
+                            progress_text = build_progress_text(
+                                message_count, errors,
+                                datetime.now(IST).strftime("%I:%M:%S %p - %d %B %Y"),
+                                sleeping_for=floodwait_seconds
+                            )
+                            await safe_edit_text(m, progress_text, build_cancel_kb(user_id), last_progress_text)
+                            last_progress_text = progress_text
+
+                            slept = 0
+                            interval = 1  # seconds
+                            while slept < floodwait_seconds:
+                                if cancel_forwarding.get(user_id):
+                                    await safe_edit_text(m, "❌ Forwarding cancelled by user.")
+                                    break
+                                await asyncio.sleep(min(interval, floodwait_seconds - slept))
+                                slept += interval
+                            if cancel_forwarding.get(user_id):
+                                await m.edit_text("❌ Forwarding cancelled by user.")
+                                break
+                            floodwait_attempts += 1
+                            continue
+                        break
+                    else:
+                        # Exceeded max floodwait attempts
+                        logger.error(f"FloodWait loop exceeded for message: {msg}")
+                        errors += 1
                         continue
 
                     if not success:
