@@ -26,7 +26,11 @@ SUPPORTED_TYPES = (
 
 @app.on_callback_query(filters.regex(r'^index'))
 async def index_files(bot: Client, query):
-    _, ident, chat, lst_msg_id, skip = query.data.split("#")
+    parts = query.data.split("#")
+    if len(parts) < 5:
+        return await query.answer("⚠️ Invalid callback data!", show_alert=True)
+
+    _, ident, chat, lst_msg_id, skip = parts
     msg = query.message
 
     if ident == 'yes':
@@ -42,7 +46,6 @@ async def index_files(bot: Client, query):
     elif ident == 'cancel':
         temp.CANCEL = True
         await msg.edit("🛑 Cancelling indexing process...")
-
 
 @app.on_callback_query(filters.regex(r"^index_progress_(\d+)$"))
 async def index_progress_callback(client, callback_query):
