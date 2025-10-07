@@ -20,11 +20,15 @@ cancel_forwarding = {}
 progress_status = {}
 
 
+# 🔘 Build inline keyboard for control buttons
 def build_control_kb(user_id):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
+        [
+            InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}"),
+            InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")
+        ]
     ])
+
 
 @app.on_message(filters.command("forward"))
 async def forward(bot, message):
@@ -41,7 +45,7 @@ async def forward(bot, message):
             return await message.reply_text("❗ First set target chat where you want to forward files!")
 
         cancel_forwarding[user_id] = False
-        progress_status[user_id] = {"forwarded": 0, "errors": 0, "last_time": None, "sleeping": None}
+        progress_status[user_id] = {"forwarded": 0, "errors": 0, "last_time": None}
 
         # Start message with control buttons
         m = await message.reply_text(
@@ -75,7 +79,6 @@ async def forward(bot, message):
                             if not success and floodwait_seconds:
                                 slept = 0
                                 interval = 1
-                                progress_data[user_id]["sleeping"] = floodwait_seconds
                                 while slept < floodwait_seconds:
                                     if cancel_forwarding.get(user_id):
                                         await m.edit_text("❌ Forwarding cancelled by user.")
@@ -83,7 +86,6 @@ async def forward(bot, message):
                                     await asyncio.sleep(min(interval, floodwait_seconds - slept))
                                     slept += interval
                                 floodwait_attempts += 1
-                                progress_data[user_id]["sleeping"] = None
                                 continue
 
                         except FloodWait as e:
@@ -163,13 +165,11 @@ async def check_progress_callback(client, callback_query):
     status = progress_status.get(user_id)
     if not status:
         return await callback_query.answer("No active forwarding task.", show_alert=True)
-    if status.get("sleeping"):
-        text += f"⏳ Sleeping for {data['sleeping']}s due to FloodWait"
-    else:
-        text = (
-            f"📊 Forwarding Progress:\n\n"
-            f"✅ Forwarded: {status['forwarded']}\n"
-            f"⚠️ Errors: {status['errors']}\n"
-            f"🕓 Last at: {status['last_time'] or 'N/A'}"
-        )
+
+    text = (
+        f"📊 Forwarding Progress:\n\n"
+        f"✅ Forwarded: {status['forwarded']}\n"
+        f"⚠️ Errors: {status['errors']}\n"
+        f"🕓 Last at: {status['last_time'] or 'N/A'}"
+    )
     await callback_query.answer(text, show_alert=True)
