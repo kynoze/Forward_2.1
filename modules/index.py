@@ -10,14 +10,18 @@ from config import OWNER_ID, COLLECTION_NAME
 from database.utils import temp, get_readable_time  # save_file moved to files.py; we'll import files.save_file below
 from database import db
 from bot import app
-from database.utils import save_file # import the save_file implementation from files.py
+from database.utils import save_file  # import the save_file implementation from files.py
 
 logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
 temp.CANCEL = False
-stats = {}
+stats = {}  # global dict to track progress per user
 
-SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT, enums.MessageMediaType.AUDIO)
+SUPPORTED_TYPES = (
+    enums.MessageMediaType.VIDEO,
+    enums.MessageMediaType.DOCUMENT,
+    enums.MessageMediaType.AUDIO,
+)
 
 
 @app.on_callback_query(filters.regex(r'^index'))
@@ -32,9 +36,9 @@ async def index_files(bot: Client, query):
         except Exception:
             pass
 
-        # primary collection (Motor async collection)
         primary_col = db[COLLECTION_NAME]
         await index_files_to_db(int(lst_msg_id), chat, msg, bot, int(skip), primary_col)
+
     elif ident == 'cancel':
         temp.CANCEL = True
         await msg.edit("🛑 Cancelling indexing process...")
@@ -45,22 +49,26 @@ async def check_progress_callback(client, callback_query):
     if callback_query.from_user.id not in OWNER_ID:
         return await callback_query.answer("Not allowed!", show_alert=True)
 
-    get_status= stats.get()
+    user_id = int(callback_query.matches[0].group(1))
+    get_status = stats.get(user_id)
+
     if not get_status:
         return await callback_query.answer("No active indexing task.", show_alert=True)
+
     text = (
         f"⚙️ <b>Indexing Progress</b>\n\n"
-        f"🔢 Processed: <code>{stats['processed']}</code>\n"
-        f"✅ Saved: <code>{stats['total_files']}</code>\n"
-        f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-        f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-        f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
-        f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-        f"⚠️ Errors: <code>{stats['errors']}</code>"
+        f"🔢 Processed: <code>{get_status['processed']}</code>\n"
+        f"✅ Saved: <code>{get_status['total_files']}</code>\n"
+        f"♻️ Duplicates: <code>{get_status['duplicate']}</code>\n"
+        f"🗑️ Deleted: <code>{get_status['deleted']}</code>\n"
+        f"🚫 Skipped: <code>{get_status['no_media']}</code>\n"
+        f"❌ Unsupported: <code>{get_status['unsupported']}</code>\n"
+        f"⚠️ Errors: <code>{get_status['errors']}</code>"
     )
+
     await callback_query.answer(text, show_alert=True)
-    
-    
+
+
 @app.on_message(filters.command('index') & filters.private)
 async def send_for_index(bot: Client, message: Any):
     if message.from_user.id not in OWNER_ID:
@@ -123,14 +131,12 @@ async def send_for_index(bot: Client, message: Any):
 async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, skip: int, primary_col) -> None:
     """
     Indexing loop using a single Mongo collection (primary_col).
-    - Uses iter_messages(offset_id=lst_msg_id, reverse=True, limit=total_to_index)
-    - Sleeps & retries on FloodWait (no recursion)
-    - Throttles progress edits
-    - Passes primary_col to save_file(media, col)
     """
     start_time = time.time()
     user_id = msg.from_user.id
-    stats = {
+
+    # initialize per-user progress tracking
+    stats[user_id] = {
         'processed': 0,
         'total_files': 0,
         'duplicate': 0,
@@ -150,11 +156,9 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
         await msg.edit("⚠️ No messages to index after skipping!")
         return
 
-    
-    progress_msg = "📦 Starting to index media..."
     try:
-       await msg.edit(
-            progress_msg,
+        await msg.edit(
+            "📦 Starting to index media...",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}"),
                 InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
@@ -164,94 +168,82 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
         pass
 
     async with lock:
-        # loop so we can sleep and retry on FloodWait without recursion
         while True:
             try:
                 async for message in bot.iter_messages(chat, lst_msg_id, skip if skip else 0):
-                    # cancellation
                     if temp.CANCEL:
                         temp.CANCEL = False
                         duration = get_readable_time(time.time() - start_time)
                         await msg.edit(
                             f"🛑 <b>Indexing Cancelled!</b>\n\n"
-                            f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                            f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                            f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                            f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                            f"🚫 No Media: <code>{stats['no_media']}</code>\n"
-                            f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                            f"⚠️ Errors: <code>{stats['errors']}</code>\n"
+                            f"🔢 Processed: <code>{stats[user_id]['processed']}</code>\n"
+                            f"✅ Saved: <code>{stats[user_id]['total_files']}</code>\n"
+                            f"♻️ Duplicates: <code>{stats[user_id]['duplicate']}</code>\n"
+                            f"🗑️ Deleted: <code>{stats[user_id]['deleted']}</code>\n"
+                            f"🚫 No Media: <code>{stats[user_id]['no_media']}</code>\n"
+                            f"❌ Unsupported: <code>{stats[user_id]['unsupported']}</code>\n"
+                            f"⚠️ Errors: <code>{stats[user_id]['errors']}</code>\n"
                             f"⏳ Duration: <code>{duration}</code>"
                         )
+                        stats.pop(user_id, None)
                         return
 
-                    # defensive checks
+                    stats[user_id]['processed'] += 1
+
                     if not message:
-                        stats['deleted'] += 1
-                        stats['processed'] += 1
+                        stats[user_id]['deleted'] += 1
                         continue
 
-                    stats['processed'] += 1
-
-                    # ensure we skip lower ids
-                    msg_id = getattr(message, "message_id", None) or getattr(message, "id", None)
-                    if msg_id is not None and msg_id <= skip:
-                        continue
-
-                    # media checks
                     if not message.media:
-                        stats['no_media'] += 1
-                    elif message.media not in SUPPORTED_TYPES:
-                        stats['unsupported'] += 1
-                    else:
-                        media = getattr(message, message.media.value, None)
-                        mime = getattr(media, "mime_type", "") if media else ""
-                        if not media or not mime.startswith("video"):
-                            stats['unsupported'] += 1
+                        stats[user_id]['no_media'] += 1
+                        continue
+
+                    if message.media not in SUPPORTED_TYPES:
+                        stats[user_id]['unsupported'] += 1
+                        continue
+
+                    media = getattr(message, message.media.value, None)
+                    if not media:
+                        stats[user_id]['no_media'] += 1
+                        continue
+
+                    media.caption = message.caption
+                    try:
+                        result = await save_file(media, primary_col)
+                        if result == 'suc':
+                            stats[user_id]['total_files'] += 1
+                        elif result == 'dup':
+                            stats[user_id]['duplicate'] += 1
                         else:
-                            media.caption = message.caption
-                            try:
-                                result = await save_file(media, primary_col)
-                                if result == 'suc':
-                                    stats['total_files'] += 1
-                                elif result == 'dup':
-                                    stats['duplicate'] += 1
-                                else:
-                                    stats['errors'] += 1
-                            except FloodWait as e:
-                                wait = int(getattr(e, "value", 5)) + 2
-                                await msg.edit(f"⏳ FloodWait during save_file. Sleeping {wait}s...")
-                                await asyncio.sleep(wait)
-                                # raise so outer except(FloodWait) handles consistent sleeping
-                                raise e
-                            except Exception:
-                                stats['errors'] += 1
-                                logger.exception("Error saving media")
-                                
-                # completed iteration without FloodWait
+                            stats[user_id]['errors'] += 1
+                    except FloodWait as e:
+                        wait = int(getattr(e, "value", 5)) + 2
+                        await msg.edit(f"⏳ FloodWait during save_file. Sleeping {wait}s...")
+                        await asyncio.sleep(wait)
+                    except Exception:
+                        stats[user_id]['errors'] += 1
+                        logger.exception("Error saving media")
+
+                # finished successfully
                 duration = get_readable_time(time.time() - start_time)
                 await msg.edit(
                     f"🎉 <b>Indexing Completed!</b>\n\n"
-                    f"🔢 Processed: <code>{stats['processed']}</code>\n"
-                    f"✅ Saved: <code>{stats['total_files']}</code>\n"
-                    f"♻️ Duplicates: <code>{stats['duplicate']}</code>\n"
-                    f"🗑️ Deleted: <code>{stats['deleted']}</code>\n"
-                    f"🚫 Skipped: <code>{stats['no_media']}</code>\n"
-                    f"❌ Unsupported: <code>{stats['unsupported']}</code>\n"
-                    f"⚠️ Errors: <code>{stats['errors']}</code>\n"
+                    f"🔢 Processed: <code>{stats[user_id]['processed']}</code>\n"
+                    f"✅ Saved: <code>{stats[user_id]['total_files']}</code>\n"
+                    f"♻️ Duplicates: <code>{stats[user_id]['duplicate']}</code>\n"
+                    f"🗑️ Deleted: <code>{stats[user_id]['deleted']}</code>\n"
+                    f"🚫 Skipped: <code>{stats[user_id]['no_media']}</code>\n"
+                    f"❌ Unsupported: <code>{stats[user_id]['unsupported']}</code>\n"
+                    f"⚠️ Errors: <code>{stats[user_id]['errors']}</code>\n"
                     f"⏳ Duration: <code>{duration}</code>"
                 )
+                stats.pop(user_id, None)
                 return
 
             except FloodWait as e:
                 wait = int(getattr(e, "value", 5)) + 2
                 logger.warning("FloodWait triggered while iterating: sleeping %ds", wait)
-                try:
-                    await msg.edit(f"⏳ FloodWait triggered. Sleeping for {wait} seconds...")
-                except Exception:
-                    pass
                 await asyncio.sleep(wait)
-                # loop and retry (note: this will re-run iter_messages from the same offset)
                 continue
 
             except Exception as e:
@@ -260,5 +252,5 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
                     await msg.reply(f'❌ Indexing failed: {str(e)}')
                 except Exception:
                     pass
+                stats.pop(user_id, None)
                 return
-    
