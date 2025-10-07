@@ -45,7 +45,7 @@ async def forward(bot, message):
             return await message.reply_text("❗ First set target chat where you want to forward files!")
 
         cancel_forwarding[user_id] = False
-        progress_status[user_id] = {"forwarded": 0, "errors": 0, "last_time": None}
+        progress_status[user_id] = {"forwarded": 0, "errors": 0, "last_time": None, "sleeping": None}
 
         # Start message with control buttons
         m = await message.reply_text(
@@ -79,6 +79,7 @@ async def forward(bot, message):
                             if not success and floodwait_seconds:
                                 slept = 0
                                 interval = 1
+                                progress_data[user_id]["sleeping"] = floodwait_seconds
                                 while slept < floodwait_seconds:
                                     if cancel_forwarding.get(user_id):
                                         await m.edit_text("❌ Forwarding cancelled by user.")
