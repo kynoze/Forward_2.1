@@ -131,7 +131,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
     """
     start_time = time.time()
     user_id = msg.from_user.id
-    stats[userid]= {
+    stats[user_id]= {
         'processed': 0,
         'total_files': 0,
         'duplicate': 0,
