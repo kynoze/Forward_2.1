@@ -44,8 +44,8 @@ async def index_files(bot: Client, query):
         await msg.edit("🛑 Cancelling indexing process...")
 
 
-@app.on_callback_query(filters.regex(r"^check_progress_(\d+)$"))
-async def check_progress_callback(client, callback_query):
+@app.on_callback_query(filters.regex(r"^index_progress_(\d+)$"))
+async def index_progress_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
     get_status = stats.get(user_id)
     
@@ -153,7 +153,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
         await msg.edit(
             "📦 Starting to index media...",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}"),
+                InlineKeyboardButton("📊 Status", callback_data=f"index_progress_{user_id}"),
                 InlineKeyboardButton("🚫 Cancel", callback_data=f"index#cancel#{chat}#{lst_msg_id}#{skip}")
             ]])
         )
