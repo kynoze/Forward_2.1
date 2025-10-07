@@ -20,15 +20,11 @@ cancel_forwarding = {}
 progress_status = {}
 
 
-# 🔘 Build inline keyboard for control buttons
 def build_control_kb(user_id):
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}"),
-            InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")
-        ]
+        [InlineKeyboardButton("📊 Status", callback_data=f"check_progress_{user_id}")],
+        [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")]
     ])
-
 
 @app.on_message(filters.command("forward"))
 async def forward(bot, message):
