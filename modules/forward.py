@@ -59,11 +59,11 @@ async def forward(bot, message):
                 data = await get_search_results()
                 if not data:
                     break
+                c_text = f"Total Forwarded: <code>{progress_status[user_id]['forwarded']}</code>"  
                 for msg in data:
                     if cancel_forwarding.get(user_id):
-                        await m.edit_text(f"❌ Forwarding cancelled by user.")
+                        await m.edit_text(f"❌ Forwarding cancelled by user.\n{c_text}")
                         break
-                    c_text = f"Total Forwarded: <code>{progress_status[user_id]['forwarded']}</code>"  
                     floodwait_attempts = 0
                     max_floodwait_attempts = 5
                     while floodwait_attempts < max_floodwait_attempts:
