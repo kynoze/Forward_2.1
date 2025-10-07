@@ -66,7 +66,7 @@ async def forward(bot, message):
                         break
 
                     # Copy message safely
-                    success, floodwait_seconds = await copy_msg(msg, bot, message, chat_id)
+                    success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
                     if floodwait_seconds:
                         await asyncio.sleep(floodwait_seconds)
                         continue
