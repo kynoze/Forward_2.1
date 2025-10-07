@@ -46,12 +46,9 @@ async def index_files(bot: Client, query):
 
 @app.on_callback_query(filters.regex(r"^check_progress_(\d+)$"))
 async def check_progress_callback(client, callback_query):
-    if callback_query.from_user.id not in OWNER_ID:
-        return await callback_query.answer("Not allowed!", show_alert=True)
-
     user_id = int(callback_query.matches[0].group(1))
     get_status = stats.get(user_id)
-
+    
     if not get_status:
         return await callback_query.answer("No active indexing task.", show_alert=True)
 
