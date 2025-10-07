@@ -46,9 +46,9 @@ async def check_progress_callback(client, callback_query):
     if callback_query.from_user.id != user_id or user_id not in OWNER_ID:
         return await callback_query.answer("Not allowed!", show_alert=True)
 
-    stats = stats.get(user_id)
-    if not status:
-        return await callback_query.answer("No active forwarding task.", show_alert=True)
+    get_status= stats.get(user_id)
+    if not get_status:
+        return await callback_query.answer("No active indexing task.", show_alert=True)
     text = (
         f"⚙️ <b>Indexing Progress</b>\n\n"
         f"🔢 Processed: <code>{stats['processed']}</code>\n"
