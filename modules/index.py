@@ -17,7 +17,7 @@ lock = asyncio.Lock()
 temp.CANCEL = False
 stats = {}
 
-SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT, enums.MessageMediaType.MUSIC)
+SUPPORTED_TYPES = (enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT, enums.MessageMediaType.AUDIO)
 
 
 @app.on_callback_query(filters.regex(r'^index'))
