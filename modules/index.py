@@ -56,10 +56,10 @@ async def check_progress_callback(client, callback_query):
         return await callback_query.answer("No active indexing task.", show_alert=True)
 
     text = (
-        f"⚙️ <b>Indexing Progress</b>\n\n"
-        f"🔢 Processed: <code>{get_status['processed']}</code>\n"
-        f"✅ Saved: <code>{get_status['total_files']}</code>\n"
-        f"♻️ Duplicates: <code>{get_status['duplicate']}</code>\n"
+        f"⚙️ Indexing Progress\n\n"
+        f"🔢 Processed: {get_status['processed']}\n"
+        f"✅ Saved: {get_status['total_files']}\n"
+        f"♻️ Duplicates: {get_status['duplicate']}"
     )
 
     await callback_query.answer(text, show_alert=True)
