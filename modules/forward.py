@@ -20,7 +20,6 @@ cancel_forwarding = {}
 progress_status = {}
 
 
-# 🔘 Build inline keyboard for control buttons
 def build_control_kb(user_id):
     return InlineKeyboardMarkup([
         [
@@ -28,6 +27,16 @@ def build_control_kb(user_id):
             InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_forward_{user_id}")
         ]
     ])
+
+
+def format_progress(user_id, prefix="📊 Forwarding Progress:"):
+    status = progress_status.get(user_id, {"forwarded": 0, "errors": 0, "last_time": None})
+    return (
+        f"{prefix}\n\n"
+        f"✅ Forwarded: {status['forwarded']}\n"
+        f"⚠️ Errors: {status['errors']}\n"
+        f"🕓 Last at: {status['last_time'] or 'N/A'}"
+    )
 
 
 @app.on_message(filters.command("forward"))
@@ -47,7 +56,6 @@ async def forward(bot, message):
         cancel_forwarding[user_id] = False
         progress_status[user_id] = {"forwarded": 0, "errors": 0, "last_time": None}
 
-        # Start message with control buttons
         m = await message.reply_text(
             "🚀 Forwarding Started...",
             reply_markup=build_control_kb(user_id)
@@ -56,7 +64,7 @@ async def forward(bot, message):
         try:
             while True:
                 if cancel_forwarding.get(user_id):
-                    await m.edit_text("❌ Forwarding cancelled by user.")
+                    await m.edit_text(f"❌ Forwarding cancelled by user.\n\n{format_progress(user_id)}")
                     break
 
                 data = await get_search_results()
@@ -65,7 +73,7 @@ async def forward(bot, message):
 
                 for msg in data:
                     if cancel_forwarding.get(user_id):
-                        await m.edit_text("❌ Forwarding cancelled by user.")
+                        await m.edit_text(f"❌ Forwarding cancelled by user.\n\n{format_progress(user_id)}")
                         break
 
                     floodwait_attempts = 0
@@ -75,13 +83,12 @@ async def forward(bot, message):
                         try:
                             success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
 
-                            # If success is False and floodwait_seconds > 0, sleep for that duration
                             if not success and floodwait_seconds:
                                 slept = 0
                                 interval = 1
                                 while slept < floodwait_seconds:
                                     if cancel_forwarding.get(user_id):
-                                        await m.edit_text("❌ Forwarding cancelled by user.")
+                                        await m.edit_text(f"❌ Forwarding cancelled by user.\n\n{format_progress(user_id)}")
                                         break
                                     await asyncio.sleep(min(interval, floodwait_seconds - slept))
                                     slept += interval
@@ -104,11 +111,9 @@ async def forward(bot, message):
                             progress_status[user_id]["errors"] += 1
                             break
 
-                        # Break out of retry loop if success
-                        break
+                        break  
 
                     else:
-                        # Exceeded max floodwait attempts
                         logger.error(f"FloodWait loop exceeded for message: {msg}")
                         progress_status[user_id]["errors"] += 1
                         continue
@@ -129,10 +134,7 @@ async def forward(bot, message):
 
             if not cancel_forwarding.get(user_id):
                 await m.edit_text(
-                    f"✅ Forwarding Completed!\n"
-                    f"Total Forwarded: <code>{progress_status[user_id]['forwarded']}</code>\n"
-                    f"Errors: <code>{progress_status[user_id]['errors']}</code>\n"
-                    f"Last at: {progress_status[user_id]['last_time']}"
+                    f"✅ Forwarding Completed!\n{format_progress(user_id)}"
                 )
 
         except Exception as e:
@@ -144,7 +146,6 @@ async def forward(bot, message):
             progress_status.pop(user_id, None)
 
 
-# ❌ Cancel button
 @app.on_callback_query(filters.regex(r"^cancel_forward_(\d+)$"))
 async def cancel_forwarding_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
@@ -152,24 +153,17 @@ async def cancel_forwarding_callback(client, callback_query):
         return await callback_query.answer("Not allowed!", show_alert=True)
 
     cancel_forwarding[user_id] = True
-    await callback_query.answer("🛑 Cancelling forwarding...", show_alert=True)
+
+    await callback_query.answer(format_progress(user_id, prefix="🛑 Cancelling forwarding..."), show_alert=True)
 
 
-# 📊 Status button
 @app.on_callback_query(filters.regex(r"^check_progress_(\d+)$"))
 async def check_progress_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
     if callback_query.from_user.id != user_id or user_id not in OWNER_ID:
         return await callback_query.answer("Not allowed!", show_alert=True)
 
-    status = progress_status.get(user_id)
-    if not status:
+    if user_id not in progress_status:
         return await callback_query.answer("No active forwarding task.", show_alert=True)
 
-    text = (
-        f"📊 Forwarding Progress:\n\n"
-        f"✅ Forwarded: {status['forwarded']}\n"
-        f"⚠️ Errors: {status['errors']}\n"
-        f"🕓 Last at: {status['last_time'] or 'N/A'}"
-    )
-    await callback_query.answer(text, show_alert=True)
+    await callback_query.answer(format_progress(user_id), show_alert=True)
