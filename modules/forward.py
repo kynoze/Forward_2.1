@@ -20,7 +20,6 @@ cancel_forwarding = {}
 progress_status = {}
 
 
-# 🔘 Build inline keyboard for control buttons
 def build_control_kb(user_id):
     return InlineKeyboardMarkup([
         [
@@ -30,13 +29,12 @@ def build_control_kb(user_id):
     ])
 
 
-# Helper to format progress
 def format_progress(user_id, prefix="📊 Forwarding Progress:"):
     status = progress_status.get(user_id, {"forwarded": 0, "errors": 0, "last_time": None})
     return (
         f"{prefix}\n\n"
-        f"✅ Forwarded: <code>{status['forwarded']}</code>\n"
-        f"⚠️ Errors: <code>{status['errors']}</code>\n"
+        f"✅ Forwarded: {status['forwarded']}\n"
+        f"⚠️ Errors: {status['errors']}\n"
         f"🕓 Last at: {status['last_time'] or 'N/A'}"
     )
 
@@ -58,7 +56,6 @@ async def forward(bot, message):
         cancel_forwarding[user_id] = False
         progress_status[user_id] = {"forwarded": 0, "errors": 0, "last_time": None}
 
-        # Start message with control buttons
         m = await message.reply_text(
             "🚀 Forwarding Started...",
             reply_markup=build_control_kb(user_id)
@@ -86,7 +83,6 @@ async def forward(bot, message):
                         try:
                             success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
 
-                            # Handle FloodWait pause
                             if not success and floodwait_seconds:
                                 slept = 0
                                 interval = 1
@@ -115,7 +111,7 @@ async def forward(bot, message):
                             progress_status[user_id]["errors"] += 1
                             break
 
-                        break  # exit retry loop if success
+                        break  
 
                     else:
                         logger.error(f"FloodWait loop exceeded for message: {msg}")
@@ -136,7 +132,6 @@ async def forward(bot, message):
 
                     await asyncio.sleep(1)
 
-            # Completed without cancel
             if not cancel_forwarding.get(user_id):
                 await m.edit_text(
                     f"✅ Forwarding Completed!\n{format_progress(user_id)}"
@@ -151,7 +146,6 @@ async def forward(bot, message):
             progress_status.pop(user_id, None)
 
 
-# ❌ Cancel button
 @app.on_callback_query(filters.regex(r"^cancel_forward_(\d+)$"))
 async def cancel_forwarding_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
@@ -160,11 +154,9 @@ async def cancel_forwarding_callback(client, callback_query):
 
     cancel_forwarding[user_id] = True
 
-    # Show instant progress snapshot
     await callback_query.answer(format_progress(user_id, prefix="🛑 Cancelling forwarding..."), show_alert=True)
 
 
-# 📊 Status button
 @app.on_callback_query(filters.regex(r"^check_progress_(\d+)$"))
 async def check_progress_callback(client, callback_query):
     user_id = int(callback_query.matches[0].group(1))
