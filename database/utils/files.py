@@ -1,102 +1,49 @@
 import re
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from umongo import Document, fields
 from marshmallow.exceptions import ValidationError
 from database import db, instance
 from config import COLLECTION_NAME
 import logging
 from typing import Any, Optional
-from pymongo.errors import PyMongoError
 
 logger = logging.getLogger(__name__)
 
 @instance.register
 class Media(Document):
-    file_id = fields.StrField(attribute='_id', required=True)
-    caption = fields.StrField(allow_none=True)
-    #org_caption = fields.StrField(allow_none=True)
-    file_name = fields.StrField(allow_none=True)
+    file_unique_id = fields.StrField(attribute='_id', required=True)  # primary key for duplicate check
+    file_id = fields.StrField(allow_none=True)  # optional Telegram file_id
+    caption = fields.StrField(allow_none=True)  # original caption or file_name if caption missing
     use = fields.StrField(required=True)
 
     class Meta:
         collection_name = COLLECTION_NAME
 
-
-def _normalize_text(s: Optional[str]) -> Optional[str]:
-    """Normalize strings for comparisons. Return None for falsy values."""
-    if not s:
-        return None
-    s = str(s).strip()
-    if not s:
-        return None
-    # collapse whitespace and lowercase for easier duplicate detection
-    s = re.sub(r'\s+', ' ', s)
-    return s.lower()
-
-
-async def is_file_already_saved(file_id: str,
-                                file_name: Optional[str],
-                                caption: Optional[str],
-                                col) -> bool:
-    """
-    Check if the file is already saved in the collection (match _id/file_name/caption).
-    Uses a single $or query for efficiency.
-    """
-    file_name_norm = _normalize_text(file_name)
-    caption_norm = _normalize_text(caption)
-
-    or_clauses = [{"file_id": file_id}]
-    if file_name_norm:
-        or_clauses.append({"file_name": file_name_norm})
-    if caption_norm:
-        or_clauses.append({"caption": caption_norm})
-
-    query = {"$or": or_clauses}
-
+async def is_file_already_saved(file_unique_id: str, col) -> bool:
     try:
-        found = await col.find_one(query)
-        if found:
-            logger.info("Duplicate found %s in %s", query, getattr(col, "name", "<collection>"))
-            return True
+        found = await col.find_one({"_id": file_unique_id})
+        return found is not None
     except PyMongoError:
         logger.exception("DB error while checking duplicates in %s", getattr(col, "name", "<collection>"))
-    return False
-
+        return False
 
 async def save_file(media: Any, col) -> str:
-    file_id = getattr(media, "file_id", None) or getattr(media, "file_unique_id", None)
-    if not file_id:
-        logger.error("save_file: media has no file_id; media=%s", type(media))
+    file_unique_id = getattr(media, "file_unique_id", None)
+    file_id = getattr(media, "file_id", None)
+    if not file_unique_id:
+        logger.error("save_file: media has no file_unique_id; media=%s", type(media))
         return 'err'
 
-    file_name_raw = getattr(media, "file_name", None) or getattr(media, "file_path", None)
-    file_name_norm = _normalize_text(file_name_raw)
+    org_caption = getattr(media, "caption", None)  # original caption
+    if not org_caption:
+        org_caption = getattr(media, "file_name", None)  # fallback to file_name if caption missing
 
-    raw_caption = None
-    cap_obj = getattr(media, "caption", None)
-    if cap_obj:
-        html = getattr(cap_obj, "html", None)
-        text = getattr(cap_obj, "text", None)
-        if html:
-            raw_caption = html
-        elif text:
-            raw_caption = text
-        else:
-            raw_caption = str(cap_obj)
-    org_caption = raw_caption
-    caption_norm = _normalize_text(raw_caption)
+    if await is_file_already_saved(file_unique_id, col):
+        return 'dup'
 
-    # Duplicate check
-    try:
-        if await is_file_already_saved(file_id, file_name_norm, caption_norm, col):
-            return 'dup'
-    except Exception:
-        logger.exception("Duplicate check failed; proceeding to insert for file_id=%s", file_id)
-
-    # Prepare document
     file = Media(
+        file_unique_id=file_unique_id,
         file_id=file_id,
-        file_name=file_name_norm,
         caption=org_caption,
         use='forward',
     )
@@ -104,21 +51,16 @@ async def save_file(media: Any, col) -> str:
         await file.commit()
         return 'suc'
     except DuplicateKeyError:
-        logger.warning("DuplicateKeyError while inserting %s", file_id)
+        logger.warning("DuplicateKeyError while inserting %s", file_unique_id)
         return 'dup'
     except PyMongoError as e:
-        logger.exception("PyMongoError while inserting %s: %s", file_id, e)
+        logger.exception("PyMongoError while inserting %s: %s", file_unique_id, e)
         return 'err'
     except Exception as e:
-        logger.exception("Unexpected error while inserting %s: %s", file_id, e)
+        logger.exception("Unexpected error while inserting %s: %s", file_unique_id, e)
         return 'err'
 
-
 async def get_search_results(limit: int = 1):
-    """
-    Fetch messages filtered by 'use': 'forward'.
-    Returns a list of Media objects.
-    """
     cursor = Media.find({'use': "forward"})
     cursor.sort('$natural', 1)
     cursor.skip(0).limit(limit)
