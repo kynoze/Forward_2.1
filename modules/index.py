@@ -114,8 +114,8 @@ async def send_for_index(bot: Client, message: Any):
     except Exception as e:
         return await message.reply(f'❌ Error: {e}')
 
-    if chat.type != enums.ChatType.CHANNEL:
-        return await message.reply("❌ I can only index channels!")
+    if chat.type not in [enums.ChatType.CHANNEL, enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+        return await message.reply("❌ I can only index channels & groups!")
 
     # Ask for number of messages to skip
     s = await message.reply("✏️ Enter number of messages to skip from start:")
