@@ -21,6 +21,7 @@ SUPPORTED_TYPES = (
     enums.MessageMediaType.VIDEO,
     enums.MessageMediaType.DOCUMENT,
     enums.MessageMediaType.AUDIO,
+    enums.MessageMediaType.PHOTO,
 )
 
 # -------------------- CALLBACK: INDEX START / CANCEL --------------------
