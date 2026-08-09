@@ -81,7 +81,7 @@ async def forward(bot, message):
 
                     while floodwait_attempts < max_floodwait_attempts:
                         try:
-                            success, floodwait_seconds = await copy_msg(msg, bot, chat_id)
+                            success, floodwait_seconds = await copy_msg(msg, bot, chat_id, user_id)
 
                             if not success and floodwait_seconds:
                                 slept = 0
