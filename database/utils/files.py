@@ -6,7 +6,6 @@ from database import db, instance
 from config import COLLECTION_NAME
 import logging
 from typing import Any, Optional
-from helper.clean_file_name import clean_file_name
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +41,6 @@ async def save_file(media: Any, col) -> str:
     if not org_caption:
         org_caption = getattr(media, "file_name", None)  # fallback to file_name if caption missing
 
-    if clean_name:
-        org_caption = clean_file_name(org_caption)
-        
     file = Media(
         file_unique_id=file_unique_id,
         file_id=file_id,
