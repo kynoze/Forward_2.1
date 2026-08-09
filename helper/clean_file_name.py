@@ -108,7 +108,7 @@ def clean_file_name(file_name):
     file_name = re.sub(r"\(\s*@[^)]+\)", "", file_name)
     # (2025) -> 2025
     # (1950) -> 1950
-    file_name = re.sub(r"\(((?:19|20)\d{2})\)", r"\1", file_name)
+    #file_name = re.sub(r"\(((?:19|20)\d{2})\)", r"\1", file_name)
     
     # Remove username at the beginning
     file_name = re.sub(r"^\s*@\S+\s*[-:|]?\s*", "", file_name)
