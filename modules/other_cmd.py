@@ -1,9 +1,10 @@
 from pyrogram import Client, filters
+from bot import app
 
 CLEAN_FILE_NAME = {}
 CUSTOM_CAPTION_TEXT = {}
 
-@Client.on_message(filters.private & filters.command(['clean_name']))
+@app.on_message(filters.private & filters.command(['clean_name']))
 async def toggle_clean_name(bot, message):
     user_id = message.from_user.id
     parts = message.text.split(" ")
@@ -13,7 +14,7 @@ async def toggle_clean_name(bot, message):
     await message.reply(f"✅ CLEAN FILE NAME is now <b>{'ENABLED' if CLEAN_FILE_NAME[user_id] else 'DISABLED'}</b>")
    
 
-@Client.on_message(filters.private & filters.command(['add_caption']))
+@app.on_message(filters.private & filters.command(['add_caption']))
 async def add_custom_caption(bot, message):
 
     user_id = message.from_user.id
