@@ -11,7 +11,6 @@ from database.utils import temp, get_readable_time
 from database import db
 from bot import app
 from database.utils import save_file
-from .other_cmd import CLEAN_FILE_NAME
 
 logger = logging.getLogger(__name__)
 lock = asyncio.Lock()
@@ -128,7 +127,7 @@ async def send_for_index(bot: Client, message: Any):
         skip = int(skip_msg.text)
     except Exception:
         return await message.reply("❌ Invalid number!")
-        
+
     buttons = [
         [InlineKeyboardButton("✅ START", callback_data=f'index#yes#{chat.id}#{last_msg_id}#{skip}')],
         [InlineKeyboardButton("❌ CANCEL", callback_data=f'index#cancel#{chat.id}#{last_msg_id}#{skip}')]
@@ -147,7 +146,6 @@ async def send_for_index(bot: Client, message: Any):
 # -------------------- INDEXING FUNCTION --------------------
 async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, skip: int, primary_col, user_id: int) -> None:
     start_time = time.time()
-    clean_name = CLEAN_FILE_NAME.get(user_id, False)
     stats[user_id] = {
         'processed': 0,
         'total_files': 0,
@@ -212,7 +210,7 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
 
                     media.caption = message.caption
                     try:
-                        result = await save_file(media, primary_col, clean_name)
+                        result = await save_file(media, primary_col)
                         if result == 'suc':
                             stats[user_id]['total_files'] += 1
                         elif result == 'dup':
@@ -241,7 +239,6 @@ async def index_files_to_db(lst_msg_id: int, chat: Any, msg: Any, bot: Client, s
                     f"⏳ Duration: {duration}"
                 )
                 stats.pop(user_id, None)
-                CLEAN_FILE_NAME.pop(user_id, None)
                 return
 
             except FloodWait as e:
