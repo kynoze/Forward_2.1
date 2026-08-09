@@ -12,6 +12,8 @@ async def help_command(client: Client, message: Message):
         "<b>🤖 Bot Admin Commands</b>\n\n"
         "/index - Index files from a channel into the database\n"
         "/total - Check total files in the database\n"
+        "/clean_name - on/off This converts messy file names into clean professional captions.\n"
+        "/add_caption - Add your custom caption text.\n"
         "/cleardb - Clear all files from the database\n"
         "/status - Check bot's current status\n"
         "/set_channel - Set target channel (required before forwarding)\n"
